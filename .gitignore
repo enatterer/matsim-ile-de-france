@@ -7,3 +7,7 @@ dependency-reduced-pom.xml
 *.idea
 simulation_output
 ile_de_france/data
+ile_de_france/analysis
+
+# Ignore .DS_Store files
+.DS_Store
