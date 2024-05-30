@@ -14,15 +14,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * TODO: Absolute paths are used, change them to relative paths.
- */
-
 public class RunSimulationMultipleConfigs {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "/Users/elenanatterer/Development/MATSim/eqasim-java/ile_de_france/data/pop_1pm_policies_new/";
+        String workingDirectory = "data/pop_1pm_policies_new/";
 
         // Generate the list of network files dynamically
         List<String> networkFiles = generateNetworkFiles();
@@ -47,9 +43,6 @@ public class RunSimulationMultipleConfigs {
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
-        // Set the working directory
-        System.setProperty("user.dir", workingDirectory);
-
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
