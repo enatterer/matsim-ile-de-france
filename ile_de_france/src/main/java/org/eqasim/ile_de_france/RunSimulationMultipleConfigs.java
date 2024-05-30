@@ -5,7 +5,6 @@ import org.eqasim.core.simulation.mode_choice.EqasimModeChoiceModule;
 import org.eqasim.ile_de_france.mode_choice.IDFModeChoiceModule;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.core.config.CommandLine;
-import org.matsim.core.config.CommandLine.ConfigurationException;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.controler.Controler;
@@ -23,7 +22,7 @@ public class RunSimulationMultipleConfigs {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "/Users/elenanatterer/Development/MATSim/eqasim-java/ile_de_france/data/pop_1pm/pop_1pm_with_policies/";
+        String workingDirectory = "/Users/elenanatterer/Development/MATSim/eqasim-java/ile_de_france/data/pop_1pm_policies_new/";
 
         // Generate the list of network files dynamically
         List<String> networkFiles = generateNetworkFiles();
@@ -55,8 +54,8 @@ public class RunSimulationMultipleConfigs {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
         // Configuration settings
-        double flowCapacityFactor = 1e9;
-        double storageCapacityFactor = 1e9;
+        double flowCapacityFactor = 0.005;
+        double storageCapacityFactor = 0.005;
 
         // Build command line parser
         CommandLine cmd = new CommandLine.Builder(args)
@@ -106,11 +105,11 @@ public class RunSimulationMultipleConfigs {
     private static List<String> generateNetworkFiles() {
         List<String> networkFiles = new ArrayList<>();
         for (int i = 1; i <= 20; i++) {
-            networkFiles.add(String.format("networks/network_district_%d.xml.gz", i));
+            networkFiles.add(String.format("networks/network_d_%d.xml.gz", i));
             if (i < 20) {
-                networkFiles.add(String.format("networks/network_district_%d_%d.xml.gz", i, i + 1));
+                networkFiles.add(String.format("networks/network_d_%d_%d.xml.gz", i, i + 1));
                 if (i < 19) {
-                    networkFiles.add(String.format("networks/network_district_%d_%d_%d.xml.gz", i, i + 1, i + 2));
+                    networkFiles.add(String.format("networks/network_d_%d_%d_%d.xml.gz", i, i + 1, i + 2));
                 }
             }
         }
