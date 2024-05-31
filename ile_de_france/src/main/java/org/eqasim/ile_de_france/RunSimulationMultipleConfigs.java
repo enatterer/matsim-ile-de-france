@@ -27,7 +27,7 @@ public class RunSimulationMultipleConfigs {
         for (String networkFile : networkFiles) {
             // Extract the network name to create the corresponding output directory
             String networkName = networkFile.replace(".xml.gz", "");
-            String outputDirectory = Paths.get(workingDirectory,"output_policies/output_" + networkName).toString();
+            String outputDirectory = Paths.get(workingDirectory,"output_networks/" + networkName).toString();
 
             // Call the method to run the simulation
             runSimulation(configPath, networkFile, outputDirectory, workingDirectory, args);
