@@ -18,7 +18,7 @@ public class RunSimulationMultipleConfigs {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "data/pop_1pm_policies_new/";
+        String workingDirectory = "ile_de_france/data/pop_1pm_policies_new/";
 
         // Generate the list of network files dynamically
         List<String> networkFiles = generateNetworkFiles();
@@ -98,11 +98,20 @@ public class RunSimulationMultipleConfigs {
     private static List<String> generateNetworkFiles() {
         List<String> networkFiles = new ArrayList<>();
         for (int i = 1; i <= 20; i++) {
-            networkFiles.add(String.format("networks/network_d_%d.xml.gz", i));
-            if (i < 20) {
-                networkFiles.add(String.format("networks/network_d_%d_%d.xml.gz", i, i + 1));
-                if (i < 19) {
-                    networkFiles.add(String.format("networks/network_d_%d_%d_%d.xml.gz", i, i + 1, i + 2));
+//            networkFiles.add(String.format("networks/network_d_%d.xml.gz", i));
+//            if (i < 20) {
+//                networkFiles.add(String.format("networks/network_d_%d_%d.xml.gz", i, i + 1));
+//                if (i < 19) {
+//                    networkFiles.add(String.format("networks/network_d_%d_%d_%d.xml.gz", i, i + 1, i + 2));
+//                }
+//            }
+            if (i < 18) {
+                networkFiles.add(String.format("networks/network_d_%d_%d_%d_%d.xml.gz", i, i + 1, i + 2, i + 3));
+                if (i < 17) {
+                    networkFiles.add(String.format("networks/network_d_%d_%d_%d_%d_%d.xml.gz", i, i + 1, i + 2, i + 3, i + 4));
+                    if (i < 16) {
+                        networkFiles.add(String.format("networks/network_d_%d_%d_%d_%d_%d_%d.xml.gz", i, i + 1, i + 2, i + 3, i + 4, i + 5));
+                    }
                 }
             }
         }
