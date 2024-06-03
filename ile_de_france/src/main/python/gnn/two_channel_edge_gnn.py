@@ -24,11 +24,15 @@ class TwoChannelEdgeGNN(nn.Module):
             nn.init.zeros_(self.output_layer.bias)
             
     def forward(self, policy_features, traffic_features, edge_index):
-        traffic_features = traffic_features.view(-1, 1)
+        # traffic_features = traffic_features.view(-1, 1)
 
         # Apply GNN layers to edge features
         policy_hidden = self.policy_gnn(policy_features)
         traffic_hidden = self.traffic_gnn(traffic_features)
+        
+        # Debug statements to print the shapes
+        print("policy_hidden shape:", policy_hidden.shape)
+        print("traffic_hidden shape:", traffic_hidden.shape)
         
         # Combine hidden states
         combined_hidden = policy_hidden + traffic_hidden
@@ -36,7 +40,7 @@ class TwoChannelEdgeGNN(nn.Module):
         # Clip combined hidden values to avoid large values
         combined_hidden = torch.clamp(combined_hidden, min=-1e6, max=1e6)
         
-        combined_hidden = torch.spmm(edge_index, combined_hidden) 
+        # combined_hidden = torch.spmm(edge_index, combined_hidden) 
 
         # Check for NaNs after combining
         if torch.isnan(combined_hidden).any():
