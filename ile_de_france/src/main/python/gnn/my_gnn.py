@@ -33,6 +33,10 @@ class MyGNN(MessagePassing):
         # Final output transformation
         output = self.output_layer(out)
         
+        print("Policy Hidden: ", policy_hidden[:5])
+        print("Traffic Hidden: ", traffic_hidden[:5])
+        print("Combined Hidden: ", combined_hidden[:5])
+
         return output
 
     def message(self, combined_hidden_j):
