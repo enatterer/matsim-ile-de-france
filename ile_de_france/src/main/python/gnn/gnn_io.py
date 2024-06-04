@@ -37,6 +37,25 @@ def check_and_replace_inf(policy_data):
             row[1] = 1e6 if freespeed == float('inf') else -1e6
     return policy_data, has_inf, inf_sources
 
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+            
+def get_dataloader(is_train, batch_size, datasets):
+    loader = torch.utils.data.DataLoader(dataset=datasets, 
+                                         batch_size=batch_size, 
+                                         shuffle=True if is_train else False, 
+                                         pin_memory=True, num_workers=2)
+    return loader
+
+def min_max_normalize(tensor):
+    min_val = tensor.min()
+    max_val = tensor.max()
+    normalized_tensor = (tensor - min_val) / (max_val - min_val)
+    return normalized_tensor
+
 
 # Define a dictionary to map each mode to an integer
 mode_mapping = {
@@ -83,7 +102,7 @@ def create_edge_index_and_tensors(gdf):
         line = row['geometry']
         car_volume = row['vol_car']  # Extract car volume
         capacity = row['capacity']  # Extract capacity
-        freespeed = row['freespeed']  # Extract freespeed speed
+        freespeed = row['freespeed']  # Extract freeflow speed
         modes = encode_modes(row['modes']) # Extract modes
         if isinstance(line, LineString):
             start_point = line.coords[0]
@@ -121,59 +140,59 @@ def create_edge_index_and_tensors(gdf):
     policy_tensor = torch.tensor(policy_data, dtype=torch.float)
     return edge_index, car_volume_tensor, policy_tensor, nodes
 
-def visualize_data(policy_features, flow_features, title):
-    edges = edge_index.T.tolist()
+# def visualize_data(policy_features, flow_features, title):
+#     edges = edge_index.T.tolist()
 
-    # Create a networkx graph from the edge list
-    G = nx.Graph(edges)
+#     # Create a networkx graph from the edge list
+#     G = nx.Graph(edges)
 
-    # Create a colormap for flow features
-    flow_cmap = plt.cm.Reds     # colormap for flow features
+#     # Create a colormap for flow features
+#     flow_cmap = plt.cm.Reds     # colormap for flow features
 
-    # Extract flow features from tensor
-    flow_values = flow_features.tolist()      # flow graph has only one feature atm
+#     # Extract flow features from tensor
+#     flow_values = flow_features.tolist()      # flow graph has only one feature atm
 
-    # Normalize features for colormap mapping
-    flow_min = 0
-    flow_max = 100
-    norm = Normalize(vmin=flow_min, vmax=flow_max)
+#     # Normalize features for colormap mapping
+#     flow_min = 0
+#     flow_max = 100
+#     norm = Normalize(vmin=flow_min, vmax=flow_max)
 
-    # Draw the graph with separate lines for flow features on each edge and annotations for policy features
-    plt.figure(figsize=(8, 6))
-    pos = nx.spring_layout(G, seed=42)  # Layout for better visualization
+#     # Draw the graph with separate lines for flow features on each edge and annotations for policy features
+#     plt.figure(figsize=(8, 6))
+#     pos = nx.spring_layout(G, seed=42)  # Layout for better visualization
 
-    # Set to store processed edges
-    processed_edges = set()
+#     # Set to store processed edges
+#     processed_edges = set()
 
-    # Draw edges for flow features and annotate with policy features
-    for i, (u, v) in enumerate(edges):
-        # Check if the edge has already been processed
-        if (u, v) not in processed_edges and (v, u) not in processed_edges:
-            flow_color = flow_cmap((flow_values[i] - flow_min) / (flow_max - flow_min))
-            nx.draw_networkx_edges(G, pos, edgelist=[(u, v)], edge_color=flow_color, width=2, alpha=0.7)
+#     # Draw edges for flow features and annotate with policy features
+#     for i, (u, v) in enumerate(edges):
+#         # Check if the edge has already been processed
+#         if (u, v) not in processed_edges and (v, u) not in processed_edges:
+#             flow_color = flow_cmap((flow_values[i] - flow_min) / (flow_max - flow_min))
+#             nx.draw_networkx_edges(G, pos, edgelist=[(u, v)], edge_color=flow_color, width=2, alpha=0.7)
 
-            # Annotate with policy feature values
-            policy_values_str = ", ".join([f"{int(val)}" for val in policy_features[i]])
-            plt.text((pos[u][0] + pos[v][0]) / 2, (pos[u][1] + pos[v][1]) / 2, f"({policy_values_str})", fontsize=8, color="black", ha="center", va="center")
+#             # Annotate with policy feature values
+#             policy_values_str = ", ".join([f"{int(val)}" for val in policy_features[i]])
+#             plt.text((pos[u][0] + pos[v][0]) / 2, (pos[u][1] + pos[v][1]) / 2, f"({policy_values_str})", fontsize=8, color="black", ha="center", va="center")
 
-            # Add the edge to the set of processed edges
-            processed_edges.add((u, v))
+#             # Add the edge to the set of processed edges
+#             processed_edges.add((u, v))
 
-    # Draw nodes
-    nx.draw_networkx_nodes(G, pos, node_size=500, node_color="skyblue", alpha=0.8)
+#     # Draw nodes
+#     nx.draw_networkx_nodes(G, pos, node_size=500, node_color="skyblue", alpha=0.8)
 
-    # Draw labels
-    nx.draw_networkx_labels(G, pos, font_size=10, font_color="black")
+#     # Draw labels
+#     nx.draw_networkx_labels(G, pos, font_size=10, font_color="black")
 
-    # Add colorbar for flow features
-    flow_sm = plt.cm.ScalarMappable(norm=norm, cmap=flow_cmap)
-    flow_sm.set_array([])
-    plt.colorbar(flow_sm, label="Flow")
-    plt.title(title)
-    # if "Train" in title:
-    #     plt.savefig(f"visualisation/train_data/{title}.png", dpi = 500)
-    # else:
-    #     plt.savefig(f"visualisation/test_data/{title}.png", dpi = 500)
+#     # Add colorbar for flow features
+#     flow_sm = plt.cm.ScalarMappable(norm=norm, cmap=flow_cmap)
+#     flow_sm.set_array([])
+#     plt.colorbar(flow_sm, label="Flow")
+#     plt.title(title)
+#     # if "Train" in title:
+#     #     plt.savefig(f"visualisation/train_data/{title}.png", dpi = 500)
+#     # else:
+#     #     plt.savefig(f"visualisation/test_data/{title}.png", dpi = 500)
     
 def create_edge_adjacency_matrix(edge_index, num_edges):
     indices = torch.cat([edge_index, edge_index.flip(0)], dim=1)  # Make it undirected
