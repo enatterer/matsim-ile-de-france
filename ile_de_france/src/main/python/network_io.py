@@ -6,6 +6,9 @@ import geopandas as gpd
 from shapely.geometry import LineString
 import os
 
+import shapely.wkt as wkt
+
+
 # Function to parse XML and convert to DataFrame
 def parse_network_xml_gz(file_path):
     with gzip.open(file_path, 'rb') as f:
@@ -102,5 +105,38 @@ def write_xml_to_gz(xml_tree, file_path):
     xml_str = xml_str.replace(b"inf", b"'Infinity")  # Replace "inf" with "'Infinity"
     with gzip.open(file_path, 'wb') as f:
         f.write(xml_str)
+        
+# Function to read and convert CSV.GZ to GeoDataFrame
+def read_network_data(folder):
+    file_path = os.path.join(folder, 'output_links.csv.gz')
+    if os.path.exists(file_path):
+        # Read the CSV file with the correct delimiter
+        df = pd.read_csv(file_path, delimiter=';')
+        
+        # Convert the 'geometry' column to actual geometrical data
+        df['geometry'] = df['geometry'].apply(wkt.loads)
+        
+        # Create a GeoDataFrame
+        gdf = gpd.GeoDataFrame(df, geometry='geometry')
+        return gdf
+    else:
+        return None
+    
+# Funktion zur Überprüfung, ob eine Teilmenge verbunden ist
+def is_connected(subset, neighbours):
+    if not subset:
+        return True
+    visited = set()
+
+    def dfs(node):
+        stack = [node]
+        while stack:
+            current = stack.pop()
+            if current not in visited:
+                visited.add(current)
+                stack.extend([n for n in neighbours[current] if n in subset and n not in visited])
+
+    dfs(next(iter(subset)))
+    return visited == subset
     
     
