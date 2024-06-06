@@ -38,6 +38,7 @@ public class RunSimulations1pctMultipleThreads {
                     String networkName = networkFile.replace(".xml.gz", "");
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
+                    System.out.println("Processed file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
