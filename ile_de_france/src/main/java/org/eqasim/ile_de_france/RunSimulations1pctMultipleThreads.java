@@ -11,7 +11,8 @@ import org.matsim.core.controler.Controler;
 import org.matsim.core.scenario.ScenarioUtils;
 
 import java.io.File;
-import java.nio.file.Paths;
+import java.io.IOException;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -38,6 +39,7 @@ public class RunSimulations1pctMultipleThreads {
                     String networkName = networkFile.replace(".xml.gz", "");
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
+                    deleteUnwantedFiles(outputDirectory);
                     System.out.println("Processed file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -125,5 +127,26 @@ public class RunSimulations1pctMultipleThreads {
 
         // Run the simulation
         controller.run();
+    }
+
+    /**
+     * Deletes all files and folders in the specified directory except for the specified files.
+     *
+     * @param outputDirectory The directory from which files and folders will be deleted.
+     */
+    private static void deleteUnwantedFiles(String outputDirectory) {
+        Path dir = Paths.get(outputDirectory);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path path : stream) {
+                if (Files.isDirectory(path) || 
+                   (!path.getFileName().toString().equals("output_links.csv.gz") && 
+                    !path.getFileName().toString().equals("eqasim_pt.csv") && 
+                    !path.getFileName().toString().equals("output_trips.csv.gz"))) {
+                    Files.delete(path);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
