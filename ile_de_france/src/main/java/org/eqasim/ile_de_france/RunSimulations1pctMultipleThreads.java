@@ -35,12 +35,14 @@ public class RunSimulations1pctMultipleThreads {
         // Loop over all network files and submit simulations to the executor
         for (String networkFile : xmlGzFiles) {
             executor.submit(() -> {
+//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
                 try {
                     String networkName = networkFile.replace(".xml.gz", "");
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
                     deleteUnwantedFiles(outputDirectory);
-                    System.out.println("Processed file: " + networkFile);
+                    deleteNetworkFile("networks/" + networkFile);
+                    System.out.println("Processed and deleted file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -138,13 +140,26 @@ public class RunSimulations1pctMultipleThreads {
         Path dir = Paths.get(outputDirectory);
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path path : stream) {
-                if (Files.isDirectory(path) || 
-                   (!path.getFileName().toString().equals("output_links.csv.gz") && 
-                    !path.getFileName().toString().equals("eqasim_pt.csv") && 
-                    !path.getFileName().toString().equals("output_trips.csv.gz"))) {
+                if (Files.isDirectory(path) ||
+                        (!path.getFileName().toString().equals("output_links.csv.gz") &&
+                                !path.getFileName().toString().equals("eqasim_pt.csv") &&
+                                !path.getFileName().toString().equals("output_trips.csv.gz"))) {
                     Files.delete(path);
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Deletes the specified network file.
+     *
+     * @param networkFilePath The path to the network file to be deleted.
+     */
+    private static void deleteNetworkFile(String networkFilePath) {
+        try {
+            Files.deleteIfExists(Paths.get(networkFilePath));
         } catch (IOException e) {
             e.printStackTrace();
         }
