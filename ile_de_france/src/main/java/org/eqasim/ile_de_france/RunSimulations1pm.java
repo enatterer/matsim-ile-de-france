@@ -11,49 +11,25 @@ import org.matsim.core.controler.Controler;
 import org.matsim.core.scenario.ScenarioUtils;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
-public class RunSimulations1pctMultipleThreads {
+public class RunSimulations1pm {
     static public void main(String[] args) throws Exception {
         // Configuration settings
-        String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
+        String configPath = "paris_1pct_config.xml";
+        String workingDirectory = "ile_de_france/data/pop_1pct_with_policies/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
 
         // List all files in the directory
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-
-        // Loop over all network files and submit simulations to the executor
+        // Loop over all network files and run simulations
         for (String networkFile : xmlGzFiles) {
-            executor.submit(() -> {
-//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
-                try {
-                    String networkName = networkFile.replace(".xml.gz", "");
-                    String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
-                    runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
-                    deleteUnwantedFiles(outputDirectory);
-                    // deleteNetworkFile("networks/" + networkFile);
-                    System.out.println("Processed and deleted file: " + networkFile);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-
-        // Shutdown the executor
-        executor.shutdown();
-        // Wait for all tasks to complete
-        if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
-            executor.shutdownNow();
+            String networkName = networkFile.replace(".xml.gz", "");
+            String outputDirectory = Paths.get(workingDirectory,"output/" + networkName).toString();
+            runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
         }
     }
 
@@ -77,9 +53,7 @@ public class RunSimulations1pctMultipleThreads {
      * Runs the MATSim simulation with the given configuration path and output directory.
      *
      * @param configPath      The path to the configuration file.
-     * @param networkFile     The network file to use for the simulation.
      * @param outputDirectory The directory where output files will be stored.
-     * @param workingDirectory The working directory.
      * @param args            Command line arguments.
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
@@ -88,8 +62,8 @@ public class RunSimulations1pctMultipleThreads {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
         // Configuration settings
-        double flowCapacityFactor = 0.006;
-        double storageCapacityFactor = 0.006;
+        double flowCapacityFactor = 0.06;
+        double storageCapacityFactor = 0.06;
 
         // Build command line parser
         CommandLine cmd = new CommandLine.Builder(args)
@@ -130,38 +104,4 @@ public class RunSimulations1pctMultipleThreads {
         // Run the simulation
         controller.run();
     }
-
-    /**
-     * Deletes all files and folders in the specified directory except for the specified files.
-     *
-     * @param outputDirectory The directory from which files and folders will be deleted.
-     */
-    private static void deleteUnwantedFiles(String outputDirectory) {
-        Path dir = Paths.get(outputDirectory);
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (Files.isDirectory(path) ||
-                        (!path.getFileName().toString().equals("output_links.csv.gz") &&
-                                !path.getFileName().toString().equals("eqasim_pt.csv") &&
-                                !path.getFileName().toString().equals("output_trips.csv.gz"))) {
-                    Files.delete(path);
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // /**
-    //  * Deletes the specified network file.
-    //  *
-    //  * @param networkFilePath The path to the network file to be deleted.
-    //  */
-    // private static void deleteNetworkFile(String networkFilePath) {
-    //     try {
-    //         Files.deleteIfExists(Paths.get(networkFilePath));
-    //     } catch (IOException e) {
-    //         e.printStackTrace();
-    //     }
-    // }
 }
