@@ -41,7 +41,7 @@ public class RunSimulations1pctMultipleThreads {
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
                     deleteUnwantedFiles(outputDirectory);
-                    deleteNetworkFile("networks/" + networkFile);
+                    // deleteNetworkFile("networks/" + networkFile);
                     System.out.println("Processed and deleted file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -152,16 +152,16 @@ public class RunSimulations1pctMultipleThreads {
         }
     }
 
-    /**
-     * Deletes the specified network file.
-     *
-     * @param networkFilePath The path to the network file to be deleted.
-     */
-    private static void deleteNetworkFile(String networkFilePath) {
-        try {
-            Files.deleteIfExists(Paths.get(networkFilePath));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    // /**
+    //  * Deletes the specified network file.
+    //  *
+    //  * @param networkFilePath The path to the network file to be deleted.
+    //  */
+    // private static void deleteNetworkFile(String networkFilePath) {
+    //     try {
+    //         Files.deleteIfExists(Paths.get(networkFilePath));
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 }
