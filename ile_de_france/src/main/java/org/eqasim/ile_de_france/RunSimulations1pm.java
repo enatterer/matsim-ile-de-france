@@ -18,9 +18,9 @@ import java.util.List;
 public class RunSimulations1pm {
     static public void main(String[] args) throws Exception {
         // Configuration settings
-        String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
+        String configPath = "paris_1pm_config.xml";
+        String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
+        String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
 
         // List all files in the directory
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
