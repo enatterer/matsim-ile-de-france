@@ -19,12 +19,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class RunSimulations1pctMultipleThreads {
-    static public void main(String[] args) throws Exception {
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+public class RunSimulations1pmMultipleThreadsExecutorService {
+        private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreadsExecutorService.class.getName());
+
+    public static void main(String[] args) {
         // Configuration settings
-        String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
+        String configPath = "paris_1pm_config.xml";
+        String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
+        String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
 
         // List all files in the directory
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
@@ -32,16 +43,14 @@ public class RunSimulations1pctMultipleThreads {
         // Create a fixed thread pool with 10 threads
         ExecutorService executor = Executors.newFixedThreadPool(10);
 
-        // Loop over all network files and submit simulations to the executor
+        // Submit tasks to the executor
         for (String networkFile : xmlGzFiles) {
             executor.submit(() -> {
-//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
                 try {
                     String networkName = networkFile.replace(".xml.gz", "");
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
                     deleteUnwantedFiles(outputDirectory);
-                    // deleteNetworkFile("networks/" + networkFile);
                     System.out.println("Processed and deleted file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -51,9 +60,17 @@ public class RunSimulations1pctMultipleThreads {
 
         // Shutdown the executor
         executor.shutdown();
-        // Wait for all tasks to complete
-        if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+        try {
+            // Wait for all tasks to complete
+            if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+                executor.shutdownNow();
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    LOGGER.severe("Executor did not terminate");
+                }
+            }
+        } catch (InterruptedException ie) {
             executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -68,7 +85,7 @@ public class RunSimulations1pctMultipleThreads {
                 }
             }
         } else {
-            System.out.println("The specified directory does not exist or is not a directory.");
+            LOGGER.warning("The specified directory does not exist or is not a directory.");
         }
         return xmlGzFiles;
     }
@@ -148,20 +165,7 @@ public class RunSimulations1pctMultipleThreads {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
         }
     }
-
-    // /**
-    //  * Deletes the specified network file.
-    //  *
-    //  * @param networkFilePath The path to the network file to be deleted.
-    //  */
-    // private static void deleteNetworkFile(String networkFilePath) {
-    //     try {
-    //         Files.deleteIfExists(Paths.get(networkFilePath));
-    //     } catch (IOException e) {
-    //         e.printStackTrace();
-    //     }
-    // }
 }
