@@ -15,21 +15,17 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.Arrays;
 
 public class RunSimulations1pmMultipleThreadsExecutorService {
-        private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreadsExecutorService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreadsExecutorService.class.getName());
 
     public static void main(String[] args) {
         // Configuration settings
@@ -38,25 +34,27 @@ public class RunSimulations1pmMultipleThreadsExecutorService {
         String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
 
         // List all files in the directory
-        List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
+        Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 10 threads
         ExecutorService executor = Executors.newFixedThreadPool(10);
 
         // Submit tasks to the executor
-        for (String networkFile : xmlGzFiles) {
-            executor.submit(() -> {
-                try {
-                    String networkName = networkFile.replace(".xml.gz", "");
-                    String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
-                    runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
-                    deleteUnwantedFiles(outputDirectory);
-                    System.out.println("Processed and deleted file: " + networkFile);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
+        networkFilesMap.forEach((subDir, networkFiles) -> {
+            for (String networkFile : networkFiles) {
+                executor.submit(() -> {
+                    try {
+                        String networkName = networkFile.replace(".xml.gz", "");
+                        String outputDirectory = Paths.get(workingDirectory, "output_" + subDir, networkName).toString();
+                        runSimulation(configPath, Paths.get("networks", subDir, networkFile).toString(), outputDirectory, workingDirectory, args);
+                        deleteUnwantedFiles(outputDirectory);
+                        System.out.println("Processed and deleted file: " + networkFile);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+        });
 
         // Shutdown the executor
         executor.shutdown();
@@ -74,20 +72,31 @@ public class RunSimulations1pmMultipleThreadsExecutorService {
         }
     }
 
-    private static List<String> getNetworkFiles(String directoryPath) {
-        File directory = new File(directoryPath);
-        File[] filesList = directory.listFiles();
-        List<String> xmlGzFiles = new ArrayList<>();
-        if (filesList != null) {
-            for (File file : filesList) {
-                if (file.isFile() && file.getName().endsWith(".xml.gz")) {
-                    xmlGzFiles.add(file.getName());
-                }
-            }
-        } else {
-            LOGGER.warning("The specified directory does not exist or is not a directory.");
+    private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
+        File mainDirectory = new File(directoryPath);
+        File[] subDirs = mainDirectory.listFiles(File::isDirectory);
+
+        if (subDirs == null) {
+            System.out.println("The specified directory does not exist or is not a directory.");
+            return Map.of();
         }
-        return xmlGzFiles;
+
+        return Arrays.stream(subDirs)
+            .collect(Collectors.toMap(
+                File::getName,
+                subDir -> {
+                    File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
+                    List<String> xmlGzFiles = new ArrayList<>();
+                    if (filesList != null) {
+                        for (File file : filesList) {
+                            if (file.isFile()) {
+                                xmlGzFiles.add(file.getName());
+                            }
+                        }
+                    }
+                    return xmlGzFiles;
+                }
+            ));
     }
 
     /**

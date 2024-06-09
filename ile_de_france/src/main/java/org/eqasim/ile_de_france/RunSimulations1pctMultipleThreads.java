@@ -30,7 +30,7 @@ public class RunSimulations1pctMultipleThreads {
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
 
         // Loop over all network files and submit simulations to the executor
         for (String networkFile : xmlGzFiles) {
@@ -88,8 +88,8 @@ public class RunSimulations1pctMultipleThreads {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
         // Configuration settings
-        double flowCapacityFactor = 0.006;
-        double storageCapacityFactor = 0.006;
+        double flowCapacityFactor = 0.06;
+        double storageCapacityFactor = 0.06;
 
         // Build command line parser
         CommandLine cmd = new CommandLine.Builder(args)
