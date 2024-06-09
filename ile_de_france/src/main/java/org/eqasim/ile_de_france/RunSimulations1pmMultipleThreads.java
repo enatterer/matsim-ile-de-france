@@ -19,12 +19,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class RunSimulations1pctMultipleThreads {
+public class RunSimulations1pmMultipleThreads {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
+        String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
+        String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
 
         // List all files in the directory
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
