@@ -30,7 +30,7 @@ public class RunSimulations1pctMultipleThreads {
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
         // Loop over all network files and submit simulations to the executor
         for (String networkFile : xmlGzFiles) {
