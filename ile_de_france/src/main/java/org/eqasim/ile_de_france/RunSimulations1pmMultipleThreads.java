@@ -19,7 +19,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.Arrays;
+
 public class RunSimulations1pmMultipleThreads {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreads.class.getName());
+
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
@@ -41,7 +58,6 @@ public class RunSimulations1pmMultipleThreads {
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
                     deleteUnwantedFiles(outputDirectory);
-                    // deleteNetworkFile("networks/" + networkFile);
                     System.out.println("Processed and deleted file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -138,17 +154,51 @@ public class RunSimulations1pmMultipleThreads {
      */
     private static void deleteUnwantedFiles(String outputDirectory) {
         Path dir = Paths.get(outputDirectory);
+        if (!Files.exists(dir)) {
+            LOGGER.warning("Output directory does not exist: " + outputDirectory);
+            return;
+        }
+
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path path : stream) {
-                if (Files.isDirectory(path) ||
-                        (!path.getFileName().toString().equals("output_links.csv.gz") &&
-                                !path.getFileName().toString().equals("eqasim_pt.csv") &&
-                                !path.getFileName().toString().equals("output_trips.csv.gz"))) {
-                    Files.delete(path);
+                if (Files.isDirectory(path)) {
+                    LOGGER.info("Deleting directory: " + path);
+                    deleteDirectoryRecursively(path);
+                } else {
+                    String fileName = path.getFileName().toString();
+                    if (!fileName.equals("output_links.csv.gz")
+                            && !fileName.equals("eqasim_pt.csv")
+                            && !fileName.equals("output_trips.csv.gz")) {
+                        Files.delete(path);
+                        LOGGER.info("Deleted file: " + path);
+                    } else {
+                        LOGGER.info("Skipping file: " + path);
+                    }
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
         }
+    }
+
+    /**
+     * Recursively deletes a directory and its contents.
+     *
+     * @param directory The directory to be deleted.
+     * @throws IOException If an I/O error occurs.
+     */
+    private static void deleteDirectoryRecursively(Path directory) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
+            for (Path entry : stream) {
+                if (Files.isDirectory(entry)) {
+                    deleteDirectoryRecursively(entry);
+                } else {
+                    Files.delete(entry);
+                    LOGGER.info("Deleted file: " + entry);
+                }
+            }
+        }
+        Files.delete(directory);
+        LOGGER.info("Deleted directory: " + directory);
     }
 }

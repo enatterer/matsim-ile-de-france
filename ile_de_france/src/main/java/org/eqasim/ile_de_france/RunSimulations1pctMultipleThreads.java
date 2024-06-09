@@ -157,6 +157,7 @@ public class RunSimulations1pctMultipleThreads {
         controller.run();
     }
 
+
     /**
      * Deletes all files and folders in the specified directory except for the specified files.
      *
@@ -164,17 +165,51 @@ public class RunSimulations1pctMultipleThreads {
      */
     private static void deleteUnwantedFiles(String outputDirectory) {
         Path dir = Paths.get(outputDirectory);
+        if (!Files.exists(dir)) {
+            LOGGER.warning("Output directory does not exist: " + outputDirectory);
+            return;
+        }
+
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path path : stream) {
-                if (Files.isDirectory(path) ||
-                        (!path.getFileName().toString().equals("output_links.csv.gz") &&
-                                !path.getFileName().toString().equals("eqasim_pt.csv") &&
-                                !path.getFileName().toString().equals("output_trips.csv.gz"))) {
-                    Files.delete(path);
+                if (Files.isDirectory(path)) {
+                    LOGGER.info("Deleting directory: " + path);
+                    deleteDirectoryRecursively(path);
+                } else {
+                    String fileName = path.getFileName().toString();
+                    if (!fileName.equals("output_links.csv.gz")
+                            && !fileName.equals("eqasim_pt.csv")
+                            && !fileName.equals("output_trips.csv.gz")) {
+                        Files.delete(path);
+                        LOGGER.info("Deleted file: " + path);
+                    } else {
+                        LOGGER.info("Skipping file: " + path);
+                    }
                 }
             }
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
         }
+    }
+
+    /**
+     * Recursively deletes a directory and its contents.
+     *
+     * @param directory The directory to be deleted.
+     * @throws IOException If an I/O error occurs.
+     */
+    private static void deleteDirectoryRecursively(Path directory) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
+            for (Path entry : stream) {
+                if (Files.isDirectory(entry)) {
+                    deleteDirectoryRecursively(entry);
+                } else {
+                    Files.delete(entry);
+                    LOGGER.info("Deleted file: " + entry);
+                }
+            }
+        }
+        Files.delete(directory);
+        LOGGER.info("Deleted directory: " + directory);
     }
 }
