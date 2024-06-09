@@ -14,12 +14,19 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class RunSimulations1pctMultipleThreads {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleThreads.class.getName());
+
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
@@ -27,50 +34,69 @@ public class RunSimulations1pctMultipleThreads {
         String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
 
         // List all files in the directory
-        List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
+        Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(5);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
-        // Loop over all network files and submit simulations to the executor
-        for (String networkFile : xmlGzFiles) {
-            executor.submit(() -> {
-//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
-                try {
-                    String networkName = networkFile.replace(".xml.gz", "");
-                    String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
-                    runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
-                    deleteUnwantedFiles(outputDirectory);
-                    // deleteNetworkFile("networks/" + networkFile);
-                    System.out.println("Processed and deleted file: " + networkFile);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
+        // Submit tasks to the executor
+        networkFilesMap.forEach((subDir, networkFiles) -> {
+            for (String networkFile : networkFiles) {
+                executor.submit(() -> {
+                    try {
+                        String networkName = networkFile.replace(".xml.gz", "");
+                        String outputDirectory = Paths.get(workingDirectory, "output_" + subDir, networkName).toString();
+                        runSimulation(configPath, Paths.get("networks", subDir, networkFile).toString(), outputDirectory, workingDirectory, args);
+                        deleteUnwantedFiles(outputDirectory);
+                        System.out.println("Processed and deleted file: " + networkFile);
+                    } catch (Exception e) {
+                        LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
+                    }
+                });
+            }
+        });
 
         // Shutdown the executor
         executor.shutdown();
-        // Wait for all tasks to complete
-        if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+        try {
+            // Wait for all tasks to complete
+            if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+                executor.shutdownNow();
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    LOGGER.severe("Executor did not terminate");
+                }
+            }
+        } catch (InterruptedException ie) {
             executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
-    private static List<String> getNetworkFiles(String directoryPath) {
-        File directory = new File(directoryPath);
-        File[] filesList = directory.listFiles();
-        List<String> xmlGzFiles = new ArrayList<>();
-        if (filesList != null) {
-            for (File file : filesList) {
-                if (file.isFile() && file.getName().endsWith(".xml.gz")) {
-                    xmlGzFiles.add(file.getName());
-                }
-            }
-        } else {
+    private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
+        File mainDirectory = new File(directoryPath);
+        File[] subDirs = mainDirectory.listFiles(File::isDirectory);
+
+        if (subDirs == null) {
             System.out.println("The specified directory does not exist or is not a directory.");
+            return Map.of();
         }
-        return xmlGzFiles;
+
+        return Arrays.stream(subDirs)
+            .collect(Collectors.toMap(
+                File::getName,
+                subDir -> {
+                    File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
+                    List<String> xmlGzFiles = new ArrayList<>();
+                    if (filesList != null) {
+                        for (File file : filesList) {
+                            if (file.isFile()) {
+                                xmlGzFiles.add(file.getName());
+                            }
+                        }
+                    }
+                    return xmlGzFiles;
+                }
+            ));
     }
 
     /**
@@ -148,20 +174,7 @@ public class RunSimulations1pctMultipleThreads {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
         }
     }
-
-    // /**
-    //  * Deletes the specified network file.
-    //  *
-    //  * @param networkFilePath The path to the network file to be deleted.
-    //  */
-    // private static void deleteNetworkFile(String networkFilePath) {
-    //     try {
-    //         Files.deleteIfExists(Paths.get(networkFilePath));
-    //     } catch (IOException e) {
-    //         e.printStackTrace();
-    //     }
-    // }
 }
