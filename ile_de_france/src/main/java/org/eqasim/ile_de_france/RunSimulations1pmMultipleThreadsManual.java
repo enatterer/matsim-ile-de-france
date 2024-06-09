@@ -19,8 +19,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class RunSimulations1pmMultipleThreads {
-    static public void main(String[] args) throws Exception {
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+public class RunSimulations1pmMultipleThreadsManual {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreadsManual.class.getName());
+
+    public static void main(String[] args) {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
         String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
@@ -29,33 +40,39 @@ public class RunSimulations1pmMultipleThreads {
         // List all files in the directory
         List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-
-        // Loop over all network files and submit simulations to the executor
+        // Create and start threads for each network file, with a limit of 2 parallel threads
+        List<Thread> threads = new ArrayList<>();
         for (String networkFile : xmlGzFiles) {
-            executor.submit(() -> {
-//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
+            Thread thread = new Thread(() -> {
                 try {
                     String networkName = networkFile.replace(".xml.gz", "");
                     String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
                     runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
                     deleteUnwantedFiles(outputDirectory);
-                    // deleteNetworkFile("networks/" + networkFile);
                     System.out.println("Processed and deleted file: " + networkFile);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             });
+            threads.add(thread);
         }
 
-        // Shutdown the executor
-        executor.shutdown();
-        // Wait for all tasks to complete
-        if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
-            executor.shutdownNow();
+        // Run the threads in batches of 2
+        int batchSize = 2;
+        for (int i = 0; i < threads.size(); i += batchSize) {
+            List<Thread> batch = threads.subList(i, Math.min(i + batchSize, threads.size()));
+            batch.forEach(Thread::start);
+            for (Thread thread : batch) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    e.printStackTrace();
+                }
+            }
         }
     }
+
 
     private static List<String> getNetworkFiles(String directoryPath) {
         File directory = new File(directoryPath);
