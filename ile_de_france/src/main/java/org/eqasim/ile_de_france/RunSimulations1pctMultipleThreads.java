@@ -13,10 +13,7 @@ import org.matsim.core.scenario.ScenarioUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -36,25 +33,43 @@ public class RunSimulations1pctMultipleThreads {
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 10 threads
-        ExecutorService executor = Executors.newFixedThreadPool(8);
+        // Create a fixed thread pool with 8 threads
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        // Submit tasks to the executor
-        networkFilesMap.forEach((subDir, networkFiles) -> {
-            for (String networkFile : networkFiles) {
-                executor.submit(() -> {
-                    try {
-                        String networkName = networkFile.replace(".xml.gz", "");
-                        String outputDirectory = Paths.get(workingDirectory, "output_" + subDir, networkName).toString();
-                        runSimulation(configPath, Paths.get("networks", subDir, networkFile).toString(), outputDirectory, workingDirectory, args);
-                        deleteUnwantedFiles(outputDirectory);
-                        System.out.println("Processed and deleted file: " + networkFile);
-                    } catch (Exception e) {
-                        LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
-                    }
-                });
+        // Process each network folder sequentially from networks_100 to networks_5000
+        for (int i = 100; i <= 5000; i += 100) {
+            String folder = "networks_" + i;
+            List<String> networkFiles = networkFilesMap.get(folder);
+            if (networkFiles == null || networkFiles.isEmpty()) {
+                continue;
             }
-        });
+
+            boolean allNetworksHaveOutputs = true;
+
+            for (String networkFile : networkFiles) {
+                String networkName = networkFile.replace(".xml.gz", "");
+                String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
+
+                if (!outputDirectoryExists(outputDirectory)) {
+                    allNetworksHaveOutputs = false;
+                    executor.submit(() -> {
+                        try {
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
+                            deleteUnwantedFiles(outputDirectory);
+                            System.out.println("Processed and deleted file: " + networkFile);
+                        } catch (Exception e) {
+                            LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
+                        }
+                    });
+                } else {
+                    System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
+                }
+            }
+
+            if (!allNetworksHaveOutputs) {
+                break; // Stop processing further folders if any network in the current folder doesn't have output
+            }
+        }
 
         // Shutdown the executor
         executor.shutdown();
@@ -82,21 +97,26 @@ public class RunSimulations1pctMultipleThreads {
         }
 
         return Arrays.stream(subDirs)
-            .collect(Collectors.toMap(
-                File::getName,
-                subDir -> {
-                    File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
-                    List<String> xmlGzFiles = new ArrayList<>();
-                    if (filesList != null) {
-                        for (File file : filesList) {
-                            if (file.isFile()) {
-                                xmlGzFiles.add(file.getName());
+                .collect(Collectors.toMap(
+                        File::getName,
+                        subDir -> {
+                            File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
+                            List<String> xmlGzFiles = new ArrayList<>();
+                            if (filesList != null) {
+                                for (File file : filesList) {
+                                    if (file.isFile()) {
+                                        xmlGzFiles.add(file.getName());
+                                    }
+                                }
                             }
+                            return xmlGzFiles;
                         }
-                    }
-                    return xmlGzFiles;
-                }
-            ));
+                ));
+    }
+
+    private static boolean outputDirectoryExists(String outputDirectory) {
+        File dir = new File(outputDirectory);
+        return dir.exists() && dir.isDirectory();
     }
 
     /**
@@ -156,7 +176,6 @@ public class RunSimulations1pctMultipleThreads {
         // Run the simulation
         controller.run();
     }
-
 
     /**
      * Deletes all files and folders in the specified directory except for the specified files.
