@@ -44,14 +44,11 @@ public class RunSimulations1pctMultipleThreads {
                 continue;
             }
 
-            boolean allNetworksHaveOutputs = true;
-
             for (String networkFile : networkFiles) {
                 String networkName = networkFile.replace(".xml.gz", "");
                 String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
 
                 if (!outputDirectoryExists(outputDirectory)) {
-                    allNetworksHaveOutputs = false;
                     executor.submit(() -> {
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
@@ -65,10 +62,6 @@ public class RunSimulations1pctMultipleThreads {
                     System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
                 }
             }
-
-            // if (!allNetworksHaveOutputs) {
-            //     break; // Stop processing further folders if any network in the current folder doesn't have output
-            // }
         }
 
         // Shutdown the executor
