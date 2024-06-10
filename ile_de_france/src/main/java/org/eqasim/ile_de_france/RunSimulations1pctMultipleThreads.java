@@ -66,9 +66,9 @@ public class RunSimulations1pctMultipleThreads {
                 }
             }
 
-            if (!allNetworksHaveOutputs) {
-                break; // Stop processing further folders if any network in the current folder doesn't have output
-            }
+            // if (!allNetworksHaveOutputs) {
+            //     break; // Stop processing further folders if any network in the current folder doesn't have output
+            // }
         }
 
         // Shutdown the executor
