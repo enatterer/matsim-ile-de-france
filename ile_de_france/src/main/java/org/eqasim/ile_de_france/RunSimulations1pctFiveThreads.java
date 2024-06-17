@@ -12,8 +12,14 @@ import org.matsim.core.scenario.ScenarioUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -21,8 +27,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RunSimulations1pctMultipleThreads {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleThreads.class.getName());
+public class RunSimulations1pctFiveThreads {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctFiveThreads.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
