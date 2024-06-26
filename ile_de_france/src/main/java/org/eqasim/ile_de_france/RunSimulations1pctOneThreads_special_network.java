@@ -43,21 +43,16 @@ public class RunSimulations1pctOneThreads_special_network {
             if (networkFiles == null || networkFiles.isEmpty()) {
                 continue;
             }
-
+            
             for (String networkFile : networkFiles) {
-                // Check if the current file is the one we want to process
-                // if (!networkFile.equals("network_d_3_5_7_8_9_10_11_14_15_16_17_19.xml.gz")) {
-                //     continue; // Skip all other files
-                // }
-
-                String networkName = networkFile.replace(".xml.gz", "");
-                System.out.println("We process the following network: ");
-                System.out.println(networkName);
-                String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
+                final String finalNetworkFile = networkFile; // Final variable for lambda capture
+                final String networkName = finalNetworkFile.replace(".xml.gz", "");
+                final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
+                System.out.println("Submitting task for: " + networkName);
 
                 if (!outputDirectoryExists(outputDirectory)) {
-
                     executor.submit(() -> {
+                        System.out.println("Starting task for: " + finalNetworkFile);
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
                             deleteUnwantedFiles(outputDirectory);
@@ -69,7 +64,10 @@ public class RunSimulations1pctOneThreads_special_network {
                 } else {
                     System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
                 }
-        }
+            
+            }
+            break;
+
         }
 
         // Shutdown the executor
