@@ -109,6 +109,8 @@ public class RunSimulations1pctOneThreads_special_network {
                                         xmlGzFiles.add(file.getName());
                                     }
                                 }
+                                // Sort the list of file names
+                                Collections.sort(xmlGzFiles);
                             }
                             return xmlGzFiles;
                         }
