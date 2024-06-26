@@ -37,7 +37,7 @@ public class RunSimulations1pctOneThreads_special_network {
         ExecutorService executor = Executors.newFixedThreadPool(1);
 
         // Process each network folder sequentially from networks_100 to networks_5000
-        for (int i = 300; i <= 5000; i += 100) {
+        for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
