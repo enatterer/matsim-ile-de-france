@@ -37,7 +37,7 @@ public class RunSimulations1pctOneThreads_special_network {
         ExecutorService executor = Executors.newFixedThreadPool(1);
 
         // Process each network folder sequentially from networks_100 to networks_5000
-        for (int i = 100; i <= 5000; i += 100) {
+        for (int i = 300; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -46,9 +46,9 @@ public class RunSimulations1pctOneThreads_special_network {
 
             for (String networkFile : networkFiles) {
                 // Check if the current file is the one we want to process
-                if (!networkFile.equals("network_d_3_5_7_8_9_10_11_14_15_16_17_19.xml.gz")) {
-                    continue; // Skip all other files
-                }
+                // if (!networkFile.equals("network_d_3_5_7_8_9_10_11_14_15_16_17_19.xml.gz")) {
+                //     continue; // Skip all other files
+                // }
 
                 String networkName = networkFile.replace(".xml.gz", "");
                 System.out.println("We process the following network: ");
