@@ -34,7 +34,7 @@ public class RunSimulations1pctOneThreads_special_network {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 8 threads
-        ExecutorService executor = Executors.newFixedThreadPool(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
 
         // Process each network folder sequentially from networks_100 to networks_5000
         for (int i = 100; i <= 5000; i += 100) {
@@ -45,6 +45,9 @@ public class RunSimulations1pctOneThreads_special_network {
             }
             
             for (String networkFile : networkFiles) {
+                // if (!networkFile.equals("network_d_10.xml.gz")) {
+                //     continue;
+                // }
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
@@ -56,7 +59,7 @@ public class RunSimulations1pctOneThreads_special_network {
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
                             deleteUnwantedFiles(outputDirectory);
-                            System.out.println("Processed and deleted file: " + networkFile);
+                            System.out.println("Processed file: " + networkFile);
                         } catch (Exception e) {
                             LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
                         }
@@ -64,10 +67,7 @@ public class RunSimulations1pctOneThreads_special_network {
                 } else {
                     System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
                 }
-            
             }
-            break;
-
         }
 
         // Shutdown the executor
