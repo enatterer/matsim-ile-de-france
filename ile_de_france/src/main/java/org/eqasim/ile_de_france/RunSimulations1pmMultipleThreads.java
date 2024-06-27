@@ -33,6 +33,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.Arrays;
+import java.util.Collections;
 
 public class RunSimulations1pmMultipleThreads {
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreads.class.getName());
@@ -44,49 +45,90 @@ public class RunSimulations1pmMultipleThreads {
         String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
 
         // List all files in the directory
-        List<String> xmlGzFiles = getNetworkFiles(networkDirectory);
+        Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 10 threads
+        // Create a fixed thread pool with 8 threads
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
-        // Loop over all network files and submit simulations to the executor
-        for (String networkFile : xmlGzFiles) {
-            executor.submit(() -> {
-//                String networkFilePath = Paths.get(networkDirectory, networkFile).toString();
-                try {
-                    String networkName = networkFile.replace(".xml.gz", "");
-                    String outputDirectory = Paths.get(workingDirectory, "output/" + networkName).toString();
-                    runSimulation(configPath, "networks/" + networkFile, outputDirectory, workingDirectory, args);
-                    deleteUnwantedFiles(outputDirectory);
-                    System.out.println("Processed and deleted file: " + networkFile);
-                } catch (Exception e) {
-                    e.printStackTrace();
+        // Process each network folder sequentially from networks_100 to networks_5000
+        for (int i = 100; i <= 5000; i += 100) {
+            String folder = "networks_" + i;
+            List<String> networkFiles = networkFilesMap.get(folder);
+            if (networkFiles == null || networkFiles.isEmpty()) {
+                continue;
+            }
+            
+            for (String networkFile : networkFiles) {
+                final String finalNetworkFile = networkFile; // Final variable for lambda capture
+                final String networkName = finalNetworkFile.replace(".xml.gz", "");
+                final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
+                System.out.println("Submitting task for: " + networkName);
+
+                if (!outputDirectoryExists(outputDirectory)) {
+                    executor.submit(() -> {
+                        System.out.println("Starting task for: " + finalNetworkFile);
+                        try {
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
+                            deleteUnwantedFiles(outputDirectory);
+                            System.out.println("Processed file: " + networkFile);
+                        } catch (Exception e) {
+                            LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
+                        }
+                    });
+                } else {
+                    System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
                 }
-            });
+            }
         }
 
         // Shutdown the executor
         executor.shutdown();
-        // Wait for all tasks to complete
-        if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+        try {
+            // Wait for all tasks to complete
+            if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+                executor.shutdownNow();
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    LOGGER.severe("Executor did not terminate");
+                }
+            }
+        } catch (InterruptedException ie) {
             executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
-    private static List<String> getNetworkFiles(String directoryPath) {
-        File directory = new File(directoryPath);
-        File[] filesList = directory.listFiles();
-        List<String> xmlGzFiles = new ArrayList<>();
-        if (filesList != null) {
-            for (File file : filesList) {
-                if (file.isFile() && file.getName().endsWith(".xml.gz")) {
-                    xmlGzFiles.add(file.getName());
-                }
-            }
-        } else {
+    private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
+        File mainDirectory = new File(directoryPath);
+        File[] subDirs = mainDirectory.listFiles(File::isDirectory);
+
+        if (subDirs == null) {
             System.out.println("The specified directory does not exist or is not a directory.");
+            return Map.of();
         }
-        return xmlGzFiles;
+
+        return Arrays.stream(subDirs)
+                .collect(Collectors.toMap(
+                        File::getName,
+                        subDir -> {
+                            File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
+                            List<String> xmlGzFiles = new ArrayList<>();
+                            if (filesList != null) {
+                                for (File file : filesList) {
+                                    if (file.isFile()) {
+                                        xmlGzFiles.add(file.getName());
+                                    }
+                                }
+                                // Sort the list of file names
+                                Collections.sort(xmlGzFiles);
+                            }
+                            return xmlGzFiles;
+                        }
+                ));
+    }
+
+    private static boolean outputDirectoryExists(String outputDirectory) {
+        File dir = new File(outputDirectory);
+        return dir.exists() && dir.isDirectory();
     }
 
     /**
@@ -102,49 +144,22 @@ public class RunSimulations1pmMultipleThreads {
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-
-        // Configuration settings
-        double flowCapacityFactor = 0.006;
-        double storageCapacityFactor = 0.006;
-
-        // Build command line parser
-        CommandLine cmd = new CommandLine.Builder(args)
-                .allowPrefixes("mode-choice-parameter", "cost-parameter")
-                .build();
-
-        // Initialize configurator and load config
-        IDFConfigurator configurator = new IDFConfigurator();
-        Config config = ConfigUtils.loadConfig(fullConfigPath, configurator.getConfigGroups());
-
-        // Set additional configuration options
-        config.controller().setOutputDirectory(outputDirectory);
-        config.qsim().setFlowCapFactor(flowCapacityFactor);
-        config.qsim().setStorageCapFactor(storageCapacityFactor);
-
-        // Modify the network file parameter
-        config.network().setInputFile(networkFile);
-
-        // Add optional config groups and apply command line configuration
-        configurator.addOptionalConfigGroups(config);
-        cmd.applyConfiguration(config);
-
-        // Create and configure scenario
-        Scenario scenario = ScenarioUtils.createScenario(config);
-        configurator.configureScenario(scenario);
-        ScenarioUtils.loadScenario(scenario);
-        configurator.adjustScenario(scenario);
-
-        // Create and configure controller
-        Controler controller = new Controler(scenario);
-        configurator.configureController(controller);
-
-        // Add necessary modules to the controller
-        controller.addOverridingModule(new EqasimAnalysisModule());
-        controller.addOverridingModule(new EqasimModeChoiceModule());
-        controller.addOverridingModule(new IDFModeChoiceModule(cmd));
-
-        // Run the simulation
-        controller.run();
+        
+        final List<String> arguments = Arrays.asList("java", "-Xmx20g", "-cp",
+         "ile_de_france/target/ile_de_france-1.5.0.jar", 
+         "org.eqasim.ile_de_france.RunSimulation1pm",  
+         "--config:global.numberOfThreads", "12",  
+         "--config:qsim.numberOfThreads", "12",
+         "--config:network.inputNetworkFile", networkFile,
+         "--config:controler.outputDirectory", outputDirectory,
+         "--config-path", fullConfigPath);
+        
+        Process process = new ProcessBuilder(arguments)
+                .redirectOutput(new File(outputDirectory +".log"))
+                .redirectError(new File(outputDirectory + ".error.log"))
+                .start();
+        System.out.println("started process: " + outputDirectory);
+        process.waitFor();
     }
 
     /**

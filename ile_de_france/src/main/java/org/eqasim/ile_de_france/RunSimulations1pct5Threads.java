@@ -21,8 +21,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RunSimulations1pctOneThreads_special_network {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctOneThreads_special_network.class.getName());
+public class RunSimulations1pct5Threads {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pct5Threads.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
@@ -34,9 +34,8 @@ public class RunSimulations1pctOneThreads_special_network {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 8 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        // Process each network folder sequentially from networks_100 to networks_5000
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
@@ -45,9 +44,6 @@ public class RunSimulations1pctOneThreads_special_network {
             }
             
             for (String networkFile : networkFiles) {
-                // if (!networkFile.equals("network_d_10.xml.gz")) {
-                //     continue;
-                // }
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
@@ -133,49 +129,22 @@ public class RunSimulations1pctOneThreads_special_network {
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-
-        // Configuration settings
-        double flowCapacityFactor = 0.06;
-        double storageCapacityFactor = 0.06;
-
-        // Build command line parser
-        CommandLine cmd = new CommandLine.Builder(args)
-                .allowPrefixes("mode-choice-parameter", "cost-parameter")
-                .build();
-
-        // Initialize configurator and load config
-        IDFConfigurator configurator = new IDFConfigurator();
-        Config config = ConfigUtils.loadConfig(fullConfigPath, configurator.getConfigGroups());
-
-        // Set additional configuration options
-        config.controller().setOutputDirectory(outputDirectory);
-        config.qsim().setFlowCapFactor(flowCapacityFactor);
-        config.qsim().setStorageCapFactor(storageCapacityFactor);
-
-        // Modify the network file parameter
-        config.network().setInputFile(networkFile);
-
-        // Add optional config groups and apply command line configuration
-        configurator.addOptionalConfigGroups(config);
-        cmd.applyConfiguration(config);
-
-        // Create and configure scenario
-        Scenario scenario = ScenarioUtils.createScenario(config);
-        configurator.configureScenario(scenario);
-        ScenarioUtils.loadScenario(scenario);
-        configurator.adjustScenario(scenario);
-
-        // Create and configure controller
-        Controler controller = new Controler(scenario);
-        configurator.configureController(controller);
-
-        // Add necessary modules to the controller
-        controller.addOverridingModule(new EqasimAnalysisModule());
-        controller.addOverridingModule(new EqasimModeChoiceModule());
-        controller.addOverridingModule(new IDFModeChoiceModule(cmd));
-
-        // Run the simulation
-        controller.run();
+        
+        final List<String> arguments = Arrays.asList("java", "-Xmx40g", "-cp",
+         "ile_de_france/target/ile_de_france-1.5.0.jar", 
+         "org.eqasim.ile_de_france.RunSimulation1pct",  
+         "--config:global.numberOfThreads", "12",  
+         "--config:qsim.numberOfThreads", "12",
+         "--config:network.inputNetworkFile", networkFile,
+         "--config:controler.outputDirectory", outputDirectory,
+         "--config-path", fullConfigPath);
+        
+        Process process = new ProcessBuilder(arguments)
+                .redirectOutput(new File(outputDirectory + ".log"))
+                .redirectError(new File(outputDirectory + ".error.log"))
+                .start();
+        System.out.println("started process: " + outputDirectory);
+        process.waitFor();
     }
 
     /**
