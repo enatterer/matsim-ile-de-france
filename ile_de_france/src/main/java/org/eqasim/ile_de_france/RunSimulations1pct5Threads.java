@@ -144,7 +144,26 @@ public class RunSimulations1pct5Threads {
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
         System.out.println("started process: " + outputDirectory);
-        process.waitFor();
+
+        int exitValue = -57;
+
+        try {
+            try {
+                exitValue = process.waitFor();
+            }
+            catch(final InterruptedException IE) { //user cancel
+                System.out.println("interrupted="+ Thread.interrupted());
+                // System.out.println("interrupted="+ Thread.currentThread().isInterrupted());
+                process.destroy();
+                exitValue = process.waitFor();
+                }
+            }
+        catch(InterruptedException IE) { //should not happen
+            IE.printStackTrace(System.out);
+        }
+        finally {
+            System.out.println(exitValue);
+        }
     }
 
     /**

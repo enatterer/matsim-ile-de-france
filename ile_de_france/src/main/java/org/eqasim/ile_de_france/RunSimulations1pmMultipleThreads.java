@@ -48,7 +48,7 @@ public class RunSimulations1pmMultipleThreads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 8 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
         // Process each network folder sequentially from networks_100 to networks_5000
         for (int i = 100; i <= 5000; i += 100) {
@@ -159,7 +159,25 @@ public class RunSimulations1pmMultipleThreads {
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
         System.out.println("started process: " + outputDirectory);
-        process.waitFor();
+        int exitValue = -57;
+
+        try {
+            try {
+                exitValue = process.waitFor();
+            }
+            catch(final InterruptedException IE) { //user cancel
+                System.out.println("interrupted="+ Thread.interrupted());
+                // System.out.println("interrupted="+ Thread.currentThread().isInterrupted());
+                process.destroy();
+                exitValue = process.waitFor();
+                }
+            }
+        catch(InterruptedException IE) { //should not happen
+            IE.printStackTrace(System.out);
+        }
+        finally {
+            System.out.println(exitValue);
+        }
     }
 
     /**
