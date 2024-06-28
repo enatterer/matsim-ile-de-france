@@ -153,7 +153,6 @@ public class RunSimulations1pmMultipleThreads {
          "--config:network.inputNetworkFile", networkFile,
          "--config:controler.outputDirectory", outputDirectory,
          "--config-path", fullConfigPath);
-        System.out.println();
         
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory +".log"))
