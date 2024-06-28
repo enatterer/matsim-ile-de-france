@@ -148,7 +148,7 @@ public class RunSimulations1pct5Threads {
         System.out.println("started process: " + outputDirectory);
 
         try {
-            boolean finished = process.waitFor(2, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(10, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: " + networkFile);
