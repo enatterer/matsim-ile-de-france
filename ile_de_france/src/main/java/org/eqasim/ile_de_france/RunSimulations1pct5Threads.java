@@ -34,7 +34,7 @@ public class RunSimulations1pct5Threads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 8 threads
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
@@ -49,7 +49,20 @@ public class RunSimulations1pct5Threads {
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
                 System.out.println("Submitting task for: " + networkName);
 
-                if (!outputDirectoryExists(outputDirectory)) {
+                // Check if the file exists in the directory
+                boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
+
+                if (!outputDirectoryExists(outputDirectory) || !fileExists) {
+                    if (!outputDirectoryExists(outputDirectory)){
+                        try {
+                            emptyDirectory(outputDirectory);
+                            System.out.println("The directory " + outputDirectory + " has been emptied.");
+                        } catch (IOException e) {
+                            System.err.println("An error occurred while emptying the directory: " + e.getMessage());
+                        }
+                    }
+                    
+
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
@@ -82,6 +95,26 @@ public class RunSimulations1pct5Threads {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    public static void emptyDirectory(String directory) throws IOException {
+        Path dirPath = Paths.get(directory);
+        
+        if (Files.isDirectory(dirPath)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath)) {
+                for (Path entry : stream) {
+                    deleteRecursively(entry);
+                }
+            }
+        } else {
+            throw new IOException("The path specified is not a directory: " + directory);
+        }
+    }
+
+    public static boolean checkIfFileExists(String directory, String fileName) {
+        Path dirPath = Paths.get(directory);
+        Path filePath = dirPath.resolve(fileName);
+        return Files.exists(filePath) && !Files.isDirectory(filePath);
     }
 
     private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
@@ -132,11 +165,11 @@ public class RunSimulations1pct5Threads {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         
-        final List<String> arguments = Arrays.asList("java", "-Xmx40g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xmx64g", "-cp",
          "ile_de_france/target/ile_de_france-1.5.0.jar", 
          "org.eqasim.ile_de_france.RunSimulation1pct",  
-         "--config:global.numberOfThreads", "12",  
-         "--config:qsim.numberOfThreads", "12",
+         "--config:global.numberOfThreads", "1",  
+         "--config:qsim.numberOfThreads", "1",
          "--config:network.inputNetworkFile", networkFile,
          "--config:controler.outputDirectory", outputDirectory,
          "--config-path", fullConfigPath);
@@ -216,5 +249,16 @@ public class RunSimulations1pct5Threads {
         }
         Files.delete(directory);
         LOGGER.info("Deleted directory: " + directory);
+    }
+
+    private static void deleteRecursively(Path path) throws IOException {
+        if (Files.isDirectory(path)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                for (Path entry : stream) {
+                    deleteRecursively(entry);
+                }
+            }
+        }
+        Files.delete(path);
     }
 }
