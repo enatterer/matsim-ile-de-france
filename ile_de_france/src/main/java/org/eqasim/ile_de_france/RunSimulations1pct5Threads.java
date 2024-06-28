@@ -55,6 +55,7 @@ public class RunSimulations1pct5Threads {
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
                             deleteUnwantedFiles(outputDirectory);
+                            System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
                         } catch (Exception e) {
                             LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
@@ -63,6 +64,7 @@ public class RunSimulations1pct5Threads {
                 } else {
                     System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
                 }
+               
             }
         }
 
@@ -145,24 +147,19 @@ public class RunSimulations1pct5Threads {
                 .start();
         System.out.println("started process: " + outputDirectory);
 
-        int exitValue = -57;
-
         try {
-            try {
-                exitValue = process.waitFor();
+            boolean finished = process.waitFor(1, TimeUnit.HOURS);  // Increase wait time
+            if (!finished) {
+                process.destroy();  // destroy process if it times out
+                throw new InterruptedException("Simulation process timed out: " + networkFile);
             }
-            catch(final InterruptedException IE) { //user cancel
-                System.out.println("interrupted="+ Thread.interrupted());
-                // System.out.println("interrupted="+ Thread.currentThread().isInterrupted());
-                process.destroy();
-                exitValue = process.waitFor();
-                }
+            int exitValue = process.exitValue();
+            if (exitValue != 0) {
+                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
             }
-        catch(InterruptedException IE) { //should not happen
-            IE.printStackTrace(System.out);
-        }
-        finally {
-            System.out.println(exitValue);
+        } catch (InterruptedException e) {
+            process.destroy();  // ensure process is destroyed if interrupted
+            throw e;  // rethrow the exception to be handled in the calling method
         }
     }
 

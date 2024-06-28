@@ -153,30 +153,27 @@ public class RunSimulations1pmMultipleThreads {
          "--config:network.inputNetworkFile", networkFile,
          "--config:controler.outputDirectory", outputDirectory,
          "--config-path", fullConfigPath);
+        System.out.println();
         
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory +".log"))
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
         System.out.println("started process: " + outputDirectory);
-        int exitValue = -57;
 
         try {
-            try {
-                exitValue = process.waitFor();
+            boolean finished = process.waitFor(1, TimeUnit.HOURS);  // Increase wait time
+            if (!finished) {
+                process.destroy();  // destroy process if it times out
+                throw new InterruptedException("Simulation process timed out: " + networkFile);
             }
-            catch(final InterruptedException IE) { //user cancel
-                System.out.println("interrupted="+ Thread.interrupted());
-                // System.out.println("interrupted="+ Thread.currentThread().isInterrupted());
-                process.destroy();
-                exitValue = process.waitFor();
-                }
+            int exitValue = process.exitValue();
+            if (exitValue != 0) {
+                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
             }
-        catch(InterruptedException IE) { //should not happen
-            IE.printStackTrace(System.out);
-        }
-        finally {
-            System.out.println(exitValue);
+        } catch (InterruptedException e) {
+            process.destroy();  // ensure process is destroyed if interrupted
+            throw e;  // rethrow the exception to be handled in the calling method
         }
     }
 
