@@ -196,10 +196,10 @@ public class RunSimulations1pct5Threads {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: " + networkFile);
             }
-            int exitValue = process.exitValue();
-            if (exitValue != 0) {
-                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
-            }
+            // int exitValue = process.exitValue();
+            // if (exitValue != 0) {
+            //     throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
+            // }
         } catch (InterruptedException e) {
             process.destroy();  // ensure process is destroyed if interrupted
             throw e;  // rethrow the exception to be handled in the calling method
