@@ -47,29 +47,40 @@ public class RunSimulations1pmMultipleThreads {
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 8 threads
+        // Create a fixed thread pool with 5 threads
         ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        // Process each network folder sequentially from networks_100 to networks_5000
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
                 continue;
             }
-            
+
             for (String networkFile : networkFiles) {
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
                 System.out.println("Submitting task for: " + networkName);
 
-                if (!outputDirectoryExists(outputDirectory)) {
+                // Check if the file exists in the directory
+                boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
+
+                if (!outputDirectoryExists(outputDirectory) || !fileExists) {
+                    try {
+                        createAndEmptyDirectory(outputDirectory);
+                        System.out.println("The directory " + outputDirectory + " has been emptied.");
+                    } catch (IOException e) {
+                        System.err.println("An error occurred while creating or emptying the directory: " + e.getMessage());
+                        continue; // Skip to the next iteration if directory creation or emptying fails
+                    }
+
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
                             deleteUnwantedFiles(outputDirectory);
+                            System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
                         } catch (Exception e) {
                             LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
@@ -95,6 +106,28 @@ public class RunSimulations1pmMultipleThreads {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    public static void createAndEmptyDirectory(String directory) throws IOException {
+        Path dirPath = Paths.get(directory);
+
+        if (!Files.exists(dirPath)) {
+            Files.createDirectories(dirPath);
+        } else if (Files.isDirectory(dirPath)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath)) {
+                for (Path entry : stream) {
+                    deleteRecursively(entry);
+                }
+            }
+        } else {
+            throw new IOException("The path specified is not a directory: " + directory);
+        }
+    }
+
+    public static boolean checkIfFileExists(String directory, String fileName) {
+        Path dirPath = Paths.get(directory);
+        Path filePath = dirPath.resolve(fileName);
+        return Files.exists(filePath) && !Files.isDirectory(filePath);
     }
 
     private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
@@ -131,6 +164,17 @@ public class RunSimulations1pmMultipleThreads {
         return dir.exists() && dir.isDirectory();
     }
 
+    private static void deleteRecursively(Path path) throws IOException {
+        if (Files.isDirectory(path)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                for (Path entry : stream) {
+                    deleteRecursively(entry);
+                }
+            }
+        }
+        Files.delete(path);
+    }
+        
     /**
      * Runs the MATSim simulation with the given configuration path and output directory.
      *
@@ -148,8 +192,8 @@ public class RunSimulations1pmMultipleThreads {
         final List<String> arguments = Arrays.asList("java", "-Xmx20g", "-cp",
          "ile_de_france/target/ile_de_france-1.5.0.jar", 
          "org.eqasim.ile_de_france.RunSimulation1pm",  
-         "--config:global.numberOfThreads", "12",  
-         "--config:qsim.numberOfThreads", "12",
+         "--config:global.numberOfThreads", "1",  
+         "--config:qsim.numberOfThreads", "1",
          "--config:network.inputNetworkFile", networkFile,
          "--config:controler.outputDirectory", outputDirectory,
          "--config-path", fullConfigPath);
