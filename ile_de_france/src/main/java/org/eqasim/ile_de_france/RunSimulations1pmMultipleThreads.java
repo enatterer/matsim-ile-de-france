@@ -13,27 +13,13 @@ import org.matsim.core.scenario.ScenarioUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.Arrays;
-import java.util.Collections;
 
 public class RunSimulations1pmMultipleThreads {
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreads.class.getName());
@@ -47,7 +33,7 @@ public class RunSimulations1pmMultipleThreads {
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 5 threads
+        // Create a fixed thread pool with 10 threads
         ExecutorService executor = Executors.newFixedThreadPool(10);
 
         for (int i = 100; i <= 5000; i += 100) {
@@ -82,8 +68,11 @@ public class RunSimulations1pmMultipleThreads {
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            LOGGER.log(Level.SEVERE, "Task interrupted for file: " + finalNetworkFile, e);
                         } catch (Exception e) {
-                            LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
+                            LOGGER.log(Level.SEVERE, "Error processing file: " + finalNetworkFile, e);
                         }
                     });
                 } else {
@@ -95,8 +84,8 @@ public class RunSimulations1pmMultipleThreads {
         // Shutdown the executor
         executor.shutdown();
         try {
-            // Wait for all tasks to complete
-            if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+            // Increase the wait time for all tasks to complete
+            if (!executor.awaitTermination(24, TimeUnit.HOURS)) {
                 executor.shutdownNow();
                 if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
                     LOGGER.severe("Executor did not terminate");
@@ -174,7 +163,7 @@ public class RunSimulations1pmMultipleThreads {
         }
         Files.delete(path);
     }
-        
+
     /**
      * Runs the MATSim simulation with the given configuration path and output directory.
      *
@@ -188,24 +177,25 @@ public class RunSimulations1pmMultipleThreads {
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-        
+
         final List<String> arguments = Arrays.asList("java", "-Xmx20g", "-cp",
-         "ile_de_france/target/ile_de_france-1.5.0.jar", 
-         "org.eqasim.ile_de_france.RunSimulation1pm",  
-         "--config:global.numberOfThreads", "1",  
-         "--config:qsim.numberOfThreads", "1",
-         "--config:network.inputNetworkFile", networkFile,
-         "--config:controler.outputDirectory", outputDirectory,
-         "--config-path", fullConfigPath);
-        
+                "ile_de_france/target/ile_de_france-1.5.0.jar",
+                "org.eqasim.ile_de_france.RunSimulation1pm",
+                "--config:global.numberOfThreads", "1",
+                "--config:qsim.numberOfThreads", "1",
+                "--config:network.inputNetworkFile", networkFile,
+                "--config:controler.outputDirectory", outputDirectory,
+                "--config-path", fullConfigPath);
+
         Process process = new ProcessBuilder(arguments)
-                .redirectOutput(new File(outputDirectory +".log"))
+                .redirectOutput(new File(outputDirectory + ".log"))
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
         System.out.println("started process: " + outputDirectory);
 
+        boolean interrupted = false;
         try {
-            boolean finished = process.waitFor(1, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(10, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: " + networkFile);
@@ -215,8 +205,13 @@ public class RunSimulations1pmMultipleThreads {
                 throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
             }
         } catch (InterruptedException e) {
+            interrupted = true;
             process.destroy();  // ensure process is destroyed if interrupted
             throw e;  // rethrow the exception to be handled in the calling method
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
