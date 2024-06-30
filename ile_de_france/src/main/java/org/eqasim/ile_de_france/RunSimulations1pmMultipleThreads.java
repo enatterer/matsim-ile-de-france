@@ -33,8 +33,10 @@ public class RunSimulations1pmMultipleThreads {
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
-        // Create a fixed thread pool with 10 threads
+        // Create a fixed thread pool with 15 threads
         ExecutorService executor = Executors.newFixedThreadPool(15);
+
+        LOGGER.info("Starting simulations");
 
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
@@ -47,7 +49,7 @@ public class RunSimulations1pmMultipleThreads {
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
-                System.out.println("Submitting task for: " + networkName);
+                LOGGER.info("Submitting task for: " + networkName);
 
                 // Check if the file exists in the directory
                 boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
@@ -55,19 +57,19 @@ public class RunSimulations1pmMultipleThreads {
                 if (!outputDirectoryExists(outputDirectory) || !fileExists) {
                     try {
                         createAndEmptyDirectory(outputDirectory);
-                        System.out.println("The directory " + outputDirectory + " has been emptied.");
+                        LOGGER.info("The directory " + outputDirectory + " has been emptied.");
                     } catch (IOException e) {
-                        System.err.println("An error occurred while creating or emptying the directory: " + e.getMessage());
+                        LOGGER.severe("An error occurred while creating or emptying the directory: " + e.getMessage());
                         continue; // Skip to the next iteration if directory creation or emptying fails
                     }
 
                     executor.submit(() -> {
-                        System.out.println("Starting task for: " + finalNetworkFile);
+                        LOGGER.info("Starting task for: " + finalNetworkFile);
                         try {
                             runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
                             deleteUnwantedFiles(outputDirectory);
-                            System.out.println("Deleted unwanted files for: " + networkFile);
-                            System.out.println("Processed file: " + networkFile);
+                            LOGGER.info("Deleted unwanted files for: " + networkFile);
+                            LOGGER.info("Processed file: " + networkFile);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                             LOGGER.log(Level.SEVERE, "Task interrupted for file: " + finalNetworkFile, e);
@@ -76,7 +78,7 @@ public class RunSimulations1pmMultipleThreads {
                         }
                     });
                 } else {
-                    System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
+                    LOGGER.info("Skipping simulation for existing output directory: " + outputDirectory);
                 }
             }
         }
@@ -95,10 +97,12 @@ public class RunSimulations1pmMultipleThreads {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        LOGGER.info("Simulations completed");
     }
 
     public static void createAndEmptyDirectory(String directory) throws IOException {
         Path dirPath = Paths.get(directory);
+        LOGGER.info("Creating or emptying directory: " + directory);
 
         if (!Files.exists(dirPath)) {
             Files.createDirectories(dirPath);
@@ -116,7 +120,9 @@ public class RunSimulations1pmMultipleThreads {
     public static boolean checkIfFileExists(String directory, String fileName) {
         Path dirPath = Paths.get(directory);
         Path filePath = dirPath.resolve(fileName);
-        return Files.exists(filePath) && !Files.isDirectory(filePath);
+        boolean exists = Files.exists(filePath) && !Files.isDirectory(filePath);
+        LOGGER.info("Checking if file exists: " + filePath + " - " + exists);
+        return exists;
     }
 
     private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
@@ -150,7 +156,9 @@ public class RunSimulations1pmMultipleThreads {
 
     private static boolean outputDirectoryExists(String outputDirectory) {
         File dir = new File(outputDirectory);
-        return dir.exists() && dir.isDirectory();
+        boolean exists = dir.exists() && dir.isDirectory();
+        LOGGER.info("Checking if output directory exists: " + outputDirectory + " - " + exists);
+        return exists;
     }
 
     private static void deleteRecursively(Path path) throws IOException {
@@ -175,10 +183,10 @@ public class RunSimulations1pmMultipleThreads {
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
-        // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
+        LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
 
-        final List<String> arguments = Arrays.asList("java", "-Xmx24g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xmx48g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
                 "--config:global.numberOfThreads", "1",
@@ -191,7 +199,7 @@ public class RunSimulations1pmMultipleThreads {
                 .redirectOutput(new File(outputDirectory + ".log"))
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
-        System.out.println("started process: " + outputDirectory);
+        LOGGER.info("Started process: " + outputDirectory);
 
         boolean interrupted = false;
         try {
@@ -213,6 +221,7 @@ public class RunSimulations1pmMultipleThreads {
                 Thread.currentThread().interrupt();
             }
         }
+        LOGGER.info("Completed simulation for: " + networkFile);
     }
 
     /**
