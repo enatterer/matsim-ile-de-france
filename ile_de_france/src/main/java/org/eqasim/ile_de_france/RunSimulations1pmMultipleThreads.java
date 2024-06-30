@@ -195,7 +195,7 @@ public class RunSimulations1pmMultipleThreads {
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
 
-        Process process = new ProcessBuilder(arguments).start()
+        Process process = new ProcessBuilder(arguments).start();
                 // .redirectOutput(new File(outputDirectory + ".log"))
                 // .redirectError(new File(outputDirectory + ".error.log"))
                 // .start();
