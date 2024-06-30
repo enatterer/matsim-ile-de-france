@@ -34,11 +34,11 @@ public class RunSimulations1pmMultipleThreads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 15 threads
-        ExecutorService executor = Executors.newFixedThreadPool(12);
+        ExecutorService executor = Executors.newFixedThreadPool(15);
 
         LOGGER.info("Starting simulations");
 
-        for (int i = 100; i <= 5000; i += 100) {
+        for (int i = 1500; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -196,8 +196,8 @@ public class RunSimulations1pmMultipleThreads {
                 "--config-path", fullConfigPath);
 
         Process process = new ProcessBuilder(arguments)
-                .redirectOutput(new File(outputDirectory + ".log"))
-                .redirectError(new File(outputDirectory + ".error.log"))
+                // .redirectOutput(new File(outputDirectory + ".log"))
+                // .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
         LOGGER.info("Started process: " + outputDirectory);
 
