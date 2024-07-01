@@ -34,7 +34,7 @@ public class RunSimulations1pct5Threads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(5);
+        ExecutorService executor = Executors.newFixedThreadPool(3);
 
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
@@ -68,12 +68,16 @@ public class RunSimulations1pct5Threads {
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
-                        } catch (Exception e) {
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            LOGGER.log(Level.SEVERE, "Task interrupted for file: " + finalNetworkFile, e);
+                        } 
+                        catch (Exception e) {
                             LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
                         }
                     });
                 } else {
-                    System.out.println("Skipping simulation for existing output directory: " + outputDirectory);
+                    LOGGER.info("Skipping simulation for existing output directory: " + outputDirectory);
                 }
             }
         }
@@ -82,9 +86,9 @@ public class RunSimulations1pct5Threads {
         executor.shutdown();
         try {
             // Wait for all tasks to complete
-            if (!executor.awaitTermination(60, TimeUnit.MINUTES)) {
+            if (!executor.awaitTermination(300, TimeUnit.HOURS)) {
                 executor.shutdownNow();
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(360, TimeUnit.SECONDS)) {
                     LOGGER.severe("Executor did not terminate");
                 }
             }
@@ -175,7 +179,7 @@ public class RunSimulations1pct5Threads {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
-        final List<String> arguments = Arrays.asList("java", "-Xmx64g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xmx20g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "1",
@@ -190,20 +194,27 @@ public class RunSimulations1pct5Threads {
                 .start();
         System.out.println("Started process: " + outputDirectory);
 
+        boolean interrupted = false;
         try {
-            boolean finished = process.waitFor(10, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(60, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: " + networkFile);
             }
-            // int exitValue = process.exitValue();
-            // if (exitValue != 0) {
-            //     throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
-            // }
+            int exitValue = process.exitValue();
+            if (exitValue != 0) {
+                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
+            }
         } catch (InterruptedException e) {
+            interrupted = true;
             process.destroy();  // ensure process is destroyed if interrupted
             throw e;  // rethrow the exception to be handled in the calling method
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
+        LOGGER.info("Completed simulation for: " + networkFile);
     }
 
     /**
