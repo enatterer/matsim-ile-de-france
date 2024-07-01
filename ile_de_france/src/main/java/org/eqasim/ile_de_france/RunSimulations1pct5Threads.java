@@ -182,8 +182,8 @@ public class RunSimulations1pct5Threads {
         final List<String> arguments = Arrays.asList("java", "-Xmx10g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "1",
-                "--config:qsim.numberOfThreads", "1",
+                "--config:global.numberOfThreads", "12",
+                "--config:qsim.numberOfThreads", "12",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
