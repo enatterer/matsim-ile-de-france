@@ -38,7 +38,7 @@ public class RunSimulations1pmMultipleThreads {
 
         LOGGER.info("Starting simulations");
 
-        for (int i = 100; i <= 5000; i += 100) {
+        for (int i = 1500; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -195,10 +195,10 @@ public class RunSimulations1pmMultipleThreads {
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
 
-        Process process = new ProcessBuilder(arguments).start();
-                // .redirectOutput(new File(outputDirectory + ".log"))
-                // .redirectError(new File(outputDirectory + ".error.log"))
-                // .start();
+        Process process = new ProcessBuilder(arguments)
+                .redirectOutput(new File(outputDirectory + ".log"))
+                .redirectError(new File(outputDirectory + ".error.log"))
+                .start();
         LOGGER.info("Started process: " + outputDirectory);
 
         boolean interrupted = false;
