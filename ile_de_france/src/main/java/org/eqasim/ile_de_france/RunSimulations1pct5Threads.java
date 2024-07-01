@@ -179,7 +179,7 @@ public class RunSimulations1pct5Threads {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
-        final List<String> arguments = Arrays.asList("java", "-Xmx20g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xmx10g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "1",
