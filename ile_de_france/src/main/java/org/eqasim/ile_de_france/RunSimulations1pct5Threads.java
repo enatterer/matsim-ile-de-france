@@ -34,7 +34,7 @@ public class RunSimulations1pct5Threads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(5);
+        ExecutorService executor = Executors.newFixedThreadPool(3);
 
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
