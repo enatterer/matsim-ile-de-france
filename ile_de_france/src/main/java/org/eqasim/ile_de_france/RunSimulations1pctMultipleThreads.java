@@ -34,7 +34,7 @@ public class RunSimulations1pctMultipleThreads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+        ExecutorService executor = Executors.newFixedThreadPool(4);
 
         for (int i = 100; i <= 5000; i += 100) {
             String folder = "networks_" + i;
@@ -182,8 +182,8 @@ public class RunSimulations1pctMultipleThreads {
         final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "12",
-                "--config:qsim.numberOfThreads", "12",
+                "--config:global.numberOfThreads", "8",
+                "--config:qsim.numberOfThreads", "8",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
