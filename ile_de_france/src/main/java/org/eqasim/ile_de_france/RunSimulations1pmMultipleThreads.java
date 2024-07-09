@@ -34,7 +34,7 @@ public class RunSimulations1pmMultipleThreads {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 15 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(8);
 
         LOGGER.info("Starting simulations");
 
@@ -186,11 +186,11 @@ public class RunSimulations1pmMultipleThreads {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
 
-        final List<String> arguments = Arrays.asList("java", "-Xmx10g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g","-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "1",
-                "--config:qsim.numberOfThreads", "1",
+                "--config:global.numberOfThreads", "10",
+                "--config:qsim.numberOfThreads", "10",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
