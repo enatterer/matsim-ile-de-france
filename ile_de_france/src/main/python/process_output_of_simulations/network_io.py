@@ -121,6 +121,7 @@ def read_network_data(folder):
         return gdf
     else:
         return None
+
     
 # Funktion zur Überprüfung, ob eine Teilmenge verbunden ist
 def is_connected(subset, neighbours):
