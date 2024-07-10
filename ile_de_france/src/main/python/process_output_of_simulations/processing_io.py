@@ -28,6 +28,8 @@ import torch_geometric
 from torch_geometric.data import Data, Batch
 from torch_geometric.transforms import LineGraph
 
+districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
+
 def process_result_dic(result_dic):
     datalist = []
     linegraph_transformation = LineGraph()
@@ -95,7 +97,7 @@ def analyze_geodataframes(result_dic):
     if base_gdf is not None:
         base_vol_car = base_gdf['vol_car'].sum()
         base_gdf_car = base_gdf[base_gdf['modes'].str.contains('car')]
-        base_capacity_car = base_gdf_car['capacity'].sum() * 0.005
+        base_capacity_car = base_gdf_car['capacity'].sum() * 0.05
         # base_freespeed_car = base_gdf_car['freespeed'].sum()
 
     for policy, gdf in result_dic.items():
@@ -152,7 +154,7 @@ def encode_modes(modes):
 
 
 # Plotting function
-def plot_policy_data(key, df):
+def plot_simulation_output(key, df):
     arrondissement_number = key.replace('policy_', '').replace('_', ' ')
     arrondissement_number_cleaned = arrondissement_number.replace(" ", "_")
 
@@ -178,27 +180,38 @@ def plot_policy_data(key, df):
         gdf[gdf['vol_car'] == 0].plot(ax=ax, color='lightgrey', linewidth=0.2, label='Network', zorder=1)
     else:
         print("No geometries with vol_car == 0 to plot.")
-    # gdf[gdf['vol_car'] == 0].plot(ax=ax, color='lightgrey', linewidth=0.2, label='Network', zorder = 1)
 
-    # print(gdf.columns)
-    # print(gdf['vol_car'].unique())
     # Plot links with activity_count using the Viridis color scheme and log scale
+    # Plot links with vol_car using the coolwarm color scheme and log scale
     gdf.plot(column='vol_car', cmap='coolwarm', linewidth=1.5, ax=ax, legend=True,
              norm=LogNorm(vmin=gdf['vol_car'].min() + 1, vmax=gdf['vol_car'].max()),
-             legend_kwds={'label': "Car volume", 'orientation': "vertical", 'shrink': 0.5})
+             legend_kwds={'label': "Car volume", 'orientation': "vertical", 'shrink': 0.5,
+                          'prop': {'family': 'Times New Roman', 'size': 12}})
     
-    # districts.plot(ax=ax, facecolor='None', edgecolor='black', linewidth=1, label = "Arrondissements", zorder=3)
+    # districts.plot(ax=ax, facecolor='None', edgecolor='black', linewidth=1, label="Arrondissements", zorder=3)
 
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
     
-    # Customize the plot
-    plt.title(f"{arrondissement_number}")
-    plt.xlabel("Longitude")
-    plt.ylabel("Latitude")
-    plt.legend()
+    # Customize the plot with Times New Roman font and size 15
+    plt.xlabel("Longitude", fontname='Times New Roman', fontsize=15)
+    plt.ylabel("Latitude", fontname='Times New Roman', fontsize=15)
+    # plt.legend(prop={'family': 'Times New Roman', 'size': 15})
+    
+    # Customize title and legend labels
+    # ax.set_title(arrondissement_number, fontname='Times New Roman', fontsize=15)
+    for text in ax.get_legend().get_texts():
+        text.set_fontname('Times New Roman')
+        text.set_fontsize(15)
+
+    # Customize tick labels
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+        label.set_fontname('Times New Roman')
+        label.set_fontsize(10)
+        
     plt.savefig("results/" + f"{arrondissement_number_cleaned}.png", dpi=300, bbox_inches='tight')
-    # plt.show()
+    plt.show()
     
     
 def create_policy_key_1pct(folder_name):
@@ -215,3 +228,7 @@ def create_policy_key_1pm(folder_name):
     district_info = '_'.join(parts)
     districts = district_info.split('_')
     return f"Policy introduced in Arrondissement(s) {', '.join(districts)}"
+
+
+def is_single_district(filename):
+    return filename.count('_') == 2
