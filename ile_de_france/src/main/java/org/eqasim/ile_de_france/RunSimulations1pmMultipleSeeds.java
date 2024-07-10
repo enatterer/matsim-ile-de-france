@@ -16,6 +16,7 @@ public class RunSimulations1pmMultipleSeeds {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
+        // Change here to pop_1pm_policy_in_zone_1 for other case.
         String workingDirectory = "ile_de_france/data/pop_1pm_basecase/";
 
         // Create a fixed thread pool with 2 threads
@@ -27,7 +28,7 @@ public class RunSimulations1pmMultipleSeeds {
             final int finalI = i;
             executor.submit(() -> {
                 try {
-                    runSimulation(configPath,  outputDirectory, workingDirectory, args);
+                    runSimulation(configPath,  outputDirectory, workingDirectory, finalI);
                     deleteUnwantedFiles(outputDirectory);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -61,16 +62,17 @@ public class RunSimulations1pmMultipleSeeds {
      * @param configPath      The path to the configuration file.
      * @param outputDirectory The directory where output files will be stored.
      * @param workingDirectory The working directory.
-     * @param args            Command line arguments.
+     * @param seed            Random seed
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
-    public static void runSimulation(final String configPath, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
+    public static void runSimulation(final String configPath, final String outputDirectory, final String workingDirectory, final int seed) throws Exception {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
                 "--config:global.numberOfThreads", "5",
                 "--config:qsim.numberOfThreads", "5",
+                "--config:global.randomSeed", String.valueOf(seed),
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
 
