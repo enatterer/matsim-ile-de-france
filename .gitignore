@@ -9,9 +9,8 @@ simulation_output
 ile_de_france/data
 ile_de_france/analysis
 ile_de_france/src/main/python/results/*
-ile_de_france/src/main/python/gnn/wandb/*
-ile_de_france/src/main/python/gnn/__pycache__/*
-ile_de_france/src/main/python/gnn/visualisation/*
+ile_de_france/src/main/python/process_output_of_simulations/__pycache__
+ile_de_france/src/main/python/process_output_of_simulations/results/*
 
 # Ignore .DS_Store files
 .DS_Store
