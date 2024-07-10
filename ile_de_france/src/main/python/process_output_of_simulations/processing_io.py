@@ -27,6 +27,13 @@ from torch.utils.data import DataLoader, Dataset, Subset
 import torch_geometric
 from torch_geometric.data import Data, Batch
 from torch_geometric.transforms import LineGraph
+import re
+from matplotlib.colors import TwoSlopeNorm
+
+from shapely.ops import unary_union
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
 
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
 
@@ -152,67 +159,6 @@ mode_mapping = {
 def encode_modes(modes):
     return mode_mapping.get(modes, -1)  # Use -1 for any unknown modes
 
-
-# Plotting function
-def plot_simulation_output(key, df):
-    arrondissement_number = key.replace('policy_', '').replace('_', ' ')
-    arrondissement_number_cleaned = arrondissement_number.replace(" ", "_")
-
-    print(f"Policy: {key}")
-    
-    # Convert DataFrame to GeoDataFrame
-    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:2154")
-    gdf = gdf.to_crs(epsg=4326)
-
-    x_min = gdf.total_bounds[0] + 0.05
-    y_min = gdf.total_bounds[1] + 0.05
-    x_max = gdf.total_bounds[2]
-    y_max = gdf.total_bounds[3]
-    bbox = box(x_min, y_min, x_max, y_max)
-    
-    # Filter the network to include only the data within the bounding box
-    gdf = gdf[gdf.intersects(bbox)]
-    
-    # Set up the plot
-    fig, ax = plt.subplots(1, 1, figsize=(15, 15))
-    
-    if not gdf[gdf['vol_car'] == 0].empty:
-        gdf[gdf['vol_car'] == 0].plot(ax=ax, color='lightgrey', linewidth=0.2, label='Network', zorder=1)
-    else:
-        print("No geometries with vol_car == 0 to plot.")
-
-    # Plot links with activity_count using the Viridis color scheme and log scale
-    # Plot links with vol_car using the coolwarm color scheme and log scale
-    gdf.plot(column='vol_car', cmap='coolwarm', linewidth=1.5, ax=ax, legend=True,
-             norm=LogNorm(vmin=gdf['vol_car'].min() + 1, vmax=gdf['vol_car'].max()),
-             legend_kwds={'label': "Car volume", 'orientation': "vertical", 'shrink': 0.5,
-                          'prop': {'family': 'Times New Roman', 'size': 12}})
-    
-    # districts.plot(ax=ax, facecolor='None', edgecolor='black', linewidth=1, label="Arrondissements", zorder=3)
-
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-    
-    # Customize the plot with Times New Roman font and size 15
-    plt.xlabel("Longitude", fontname='Times New Roman', fontsize=15)
-    plt.ylabel("Latitude", fontname='Times New Roman', fontsize=15)
-    # plt.legend(prop={'family': 'Times New Roman', 'size': 15})
-    
-    # Customize title and legend labels
-    # ax.set_title(arrondissement_number, fontname='Times New Roman', fontsize=15)
-    for text in ax.get_legend().get_texts():
-        text.set_fontname('Times New Roman')
-        text.set_fontsize(15)
-
-    # Customize tick labels
-    ax.tick_params(axis='both', which='major', labelsize=10)
-    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-        label.set_fontname('Times New Roman')
-        label.set_fontsize(10)
-        
-    plt.savefig("results/" + f"{arrondissement_number_cleaned}.png", dpi=300, bbox_inches='tight')
-    plt.show()
-    
     
 def create_policy_key_1pct(folder_name):
     # Extract the relevant part of the folder name
@@ -232,3 +178,245 @@ def create_policy_key_1pm(folder_name):
 
 def is_single_district(filename):
     return filename.count('_') == 2
+
+def plot_simulation_output(df, districts_of_interest: list):
+    # Convert DataFrame to GeoDataFrame
+    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:2154")
+    gdf = gdf.to_crs(epsg=4326)
+
+    x_min = gdf.total_bounds[0] + 0.05
+    y_min = gdf.total_bounds[1] + 0.05
+    x_max = gdf.total_bounds[2]
+    y_max = gdf.total_bounds[3]
+    bbox = box(x_min, y_min, x_max, y_max)
+    
+    # Filter the network to include only the data within the bounding box
+    gdf = gdf[gdf.intersects(bbox)]
+    
+    # Set up the plot
+    fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+    
+    # Filter edges based on the "osm:way:highway" column
+    highway_types = ["primary", "secondary", "tertiary", "primary_link", "secondary_link", "tertiary_link"]
+    gdf = gdf[gdf["osm:way:highway"].isin(highway_types)]
+    
+    # Identify districts 1, 2, 3, 4
+    target_districts = districts[districts['c_ar'].isin(districts_of_interest)]
+    other_districts = districts[~districts['c_ar'].isin(districts_of_interest)]
+
+    gdf['intersects_target_districts'] = gdf.apply(lambda row: target_districts.intersects(row.geometry).any(), axis=1)
+
+    # Use TwoSlopeNorm for custom normalization
+    norm = TwoSlopeNorm(vmin=gdf['vol_car'].min(), vcenter=gdf['vol_car'].median(), vmax=gdf['vol_car'].max())
+    
+
+    # Plot the edges that intersect with target districts thicker
+    gdf[gdf['intersects_target_districts']].plot(column='vol_car', cmap='coolwarm', linewidth=4, ax=ax, legend=False,
+             norm=norm, label = "Higher order roads", zorder=2)
+    
+    # Plot the other edges
+    gdf[~gdf['intersects_target_districts']].plot(column='vol_car', cmap='coolwarm', linewidth=4, ax=ax, legend=False,
+             norm=norm, zorder=1)
+    
+    # Add buffer to target districts to avoid overlapping with edges
+    buffered_target_districts = target_districts.copy()
+    buffered_target_districts['geometry'] = buffered_target_districts.buffer(0.001)
+    # Ensure the buffered_target_districts GeoDataFrame is in the same CRS
+    if buffered_target_districts.crs != gdf.crs:
+        buffered_target_districts.to_crs(gdf.crs, inplace=True)
+
+    # Create a single outer boundary
+    outer_boundary = unary_union(buffered_target_districts.geometry).boundary
+
+    # Plot only the outer boundary
+    gpd.GeoSeries(outer_boundary, crs=gdf.crs).plot(ax=ax, edgecolor='black', linewidth=1, label="Arrondissements " + list_to_string(districts_of_interest), zorder=4)
+
+    # ax.set_aspect('equal')
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
+    
+    # Customize the plot with Times New Roman font and size 15
+    plt.xlabel("Longitude", fontname='Times New Roman', fontsize=15)
+    plt.ylabel("Latitude", fontname='Times New Roman', fontsize=15)
+
+    # Customize tick labels
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+        label.set_fontname('Times New Roman')
+        label.set_fontsize(15)
+    ax.legend(prop={'family': 'Times New Roman', 'size': 15})
+    
+    # Adjust layout to make space for color bar
+    # Manually set the position of the main plot axis
+    ax.set_position([0.1, 0.1, 0.75, 0.75])
+
+    # Create an axis on the right side for the color bar
+    cax = fig.add_axes([0.87, 0.22, 0.03, 0.5])  # Manually position the color bar
+
+    # Create the color bar
+    sm = plt.cm.ScalarMappable(cmap='coolwarm', norm=norm)
+    sm._A = []
+    cbar = plt.colorbar(sm, cax=cax)
+    
+    # Set color bar font properties
+    cbar.ax.tick_params(labelsize=15)
+    for t in cbar.ax.get_yticklabels():
+        t.set_fontname('Times New Roman')
+    cbar.ax.yaxis.label.set_fontname('Times New Roman')
+    cbar.ax.yaxis.label.set_size(15)
+    cbar.set_label('Car volume: Difference to base case', fontname='Times New Roman', fontsize=15)
+    plt.savefig("results/difference_to_policies_in_zones_" + list_to_string(districts_of_interest, "_"), bbox_inches='tight')
+    plt.show()
+    
+def list_to_string(integers, delimiter=', '):
+    """
+    Converts a list of integers into a string, with each integer separated by the specified delimiter.
+
+    Parameters:
+    integers (list of int): The list of integers to convert.
+    delimiter (str): The delimiter to use between integers in the string.
+
+    Returns:
+    str: A string representation of the list of integers.
+    """
+    return delimiter.join(map(str, integers))
+
+def get_subdirs(directory: str):
+    full_path = '../../../../data/' + directory + "/"
+    subdirs_pattern = os.path.join(full_path, 'output_seed_*')
+    subdirs_list = list(set(glob.glob(subdirs_pattern)))
+    subdirs_list.sort()
+    return subdirs_list
+
+# Function to read and convert CSV.GZ to GeoDataFrame
+def read_network_data(file_path):
+    if os.path.exists(file_path):
+        # Read the CSV file with the correct delimiter
+        df = pd.read_csv(file_path, delimiter=';')
+        # Convert the 'geometry' column to actual geometrical data
+        df['geometry'] = df['geometry'].apply(wkt.loads)
+        
+        # Create a GeoDataFrame
+        gdf = gpd.GeoDataFrame(df, geometry='geometry')
+        return gdf
+    else:
+        return None
+    
+
+def extract_numbers(path):
+    name = path.split('/')[-1]
+    # Use regular expression to find all numbers in the string
+    numbers = re.findall(r'\d+', name)
+    # Convert the list of numbers to a set of integers
+    return set(map(int, numbers))
+
+def create_dic(subdir: str):
+    result_dic = {}
+    for s in subdir:
+        # print(f'Accessing folder: {s}')
+        random_seed = extract_numbers(s)
+        output_links = s + "/output_links.csv.gz"
+        gdf = read_network_data(output_links)
+        if gdf is not None:
+            result_dic[str(random_seed)] = gdf
+    return result_dic
+
+def compute_average_or_median_geodataframe(geodataframes, column_name, is_mean: bool = True):
+    """
+    Compute the average GeoDataFrame from a list of GeoDataFrames for a specified column.
+    
+    Parameters:
+    geodataframes (list of GeoDataFrames): List containing GeoDataFrames
+    column_name (str): The column name for which to compute the average
+    
+    Returns:
+    GeoDataFrame: A new GeoDataFrame with the average values for the specified column
+    """
+    # Create a copy of the first GeoDataFrame to use as the base
+    average_gdf = geodataframes[0].copy()
+    
+    # Extract the specified column values from all GeoDataFrames
+    column_values = np.array([gdf[column_name].values for gdf in geodataframes])
+    
+    if (is_mean):
+    # Calculate the average values for the specified column
+        column_average = np.mean(column_values, axis=0)
+    else:
+        column_average = np.median(column_values, axis=0)
+
+    # Assign the average values to the new GeoDataFrame
+    average_gdf[column_name] = column_average
+    
+    return average_gdf
+
+
+def compute_difference_geodataframe(gdf_to_substract_from, gdf_to_substract, column_name):
+    """
+    Compute the difference of a specified column between two GeoDataFrames.
+    
+    Parameters:
+    gdf1 (GeoDataFrame): The first GeoDataFrame
+    gdf2 (GeoDataFrame): The second GeoDataFrame
+    column_name (str): The column name for which to compute the difference
+    
+    Returns:
+    GeoDataFrame: A new GeoDataFrame with the differences for the specified column
+    """
+    # Ensure the two GeoDataFrames have the same shape
+    if gdf_to_substract_from.shape != gdf_to_substract.shape:
+        raise ValueError("GeoDataFrames must have the same shape")
+
+    # Ensure the two GeoDataFrames have the same indices
+    if not gdf_to_substract_from.index.equals(gdf_to_substract.index):
+        raise ValueError("GeoDataFrames must have the same indices")
+    
+    # Ensure the two GeoDataFrames have the same geometries
+    if not gdf_to_substract_from.geometry.equals(gdf_to_substract.geometry):
+        raise ValueError("GeoDataFrames must have the same geometries")
+    
+    # Create a copy of the first GeoDataFrame to use as the base for the difference GeoDataFrame
+    difference_gdf = gdf_to_substract_from.copy()
+
+    # Compute the difference for the specified column
+    difference_gdf[column_name] = gdf_to_substract_from[column_name] - gdf_to_substract[column_name]
+
+    return difference_gdf
+
+def remove_columns(gdf_with_correct_columns, gdf_to_be_adapted):
+    """
+    Remove columns from gdf1 that are not present in gdf2.
+    
+    Parameters:
+    gdf1 (GeoDataFrame): The GeoDataFrame from which columns will be removed
+    gdf2 (GeoDataFrame): The GeoDataFrame that provides the column template
+    
+    Returns:
+    GeoDataFrame: A new GeoDataFrame with only the columns present in gdf2
+    """
+    columns_to_keep = gdf_with_correct_columns.columns
+    gdf1_filtered = gdf_to_be_adapted[columns_to_keep]
+    return gdf1_filtered
+
+def extend_geodataframe(gdf_base, gdf_to_extend, column_name):
+    """
+    Extend a GeoDataFrame by adding a column from another GeoDataFrame.
+    
+    Parameters:
+    gdf_base (GeoDataFrame): The GeoDataFrame containing the column to add
+    gdf_to_extend (GeoDataFrame): The GeoDataFrame to be extended
+    column_name (str): The column name to add to gdf_to_extend
+    
+    Returns:
+    GeoDataFrame: A new GeoDataFrame with the column added
+    """
+    # Ensure the column exists in the base GeoDataFrame
+    if column_name not in gdf_base.columns:
+        raise ValueError(f"Column '{column_name}' does not exist in the base GeoDataFrame")
+    
+    # Create a copy of the GeoDataFrame to be extended
+    extended_gdf = gdf_to_extend.copy()
+    
+    # Add the column from the base GeoDataFrame
+    extended_gdf[column_name] = gdf_base[column_name]
+    
+    return extended_gdf
