@@ -33,13 +33,25 @@ from matplotlib.colors import TwoSlopeNorm
 from shapely.ops import unary_union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-
-
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
+
+# Custom mapping for highway types
+highway_mapping = {
+    'trunk': 0, 'trunk_link': 0, 'motorway_link': 0,
+    'primary': 1, 'primary_link': 1,
+    'secondary': 2, 'secondary_link': 2,
+    'tertiary': 3, 'tertiary_link': 3,
+    'residential': 4, 'living_street': 5,
+    'pedestrian': 6, 'service': 7,
+    'construction': 8, 'unclassified': 9,
+    'np.nan': -1
+}
 
 def process_result_dic(result_dic):
     datalist = []
     linegraph_transformation = LineGraph()
+    base_network_no_policies = result_dic.get("base_network_no_policies")
+    vol_base_case = base_network_no_policies['vol_car'].values
 
     for key, df in result_dic.items():
         if isinstance(df, pd.DataFrame):
@@ -61,6 +73,7 @@ def process_result_dic(result_dic):
             lengths = gdf['length'].values  
             modes = gdf['modes'].values
             modes_encoded = np.vectorize(encode_modes)(modes)
+            highway = gdf['highway'].apply(lambda x: highway_mapping.get(x, -1)).values
             
             edge_positions = np.array([((geom.coords[0][0] + geom.coords[-1][0]) / 2, 
                                         (geom.coords[0][1] + geom.coords[-1][1]) / 2) 
@@ -79,7 +92,7 @@ def process_result_dic(result_dic):
             linegraph_data = linegraph_transformation(data)
             
             # Prepare the x for line graph: index and capacity
-            linegraph_x = torch.tensor(np.column_stack((capacities, freespeeds, lengths, modes_encoded)), dtype=torch.float)
+            linegraph_x = torch.tensor(np.column_stack((capacities, vol_base_case, highway, freespeeds, lengths, modes_encoded)), dtype=torch.float)
 
             linegraph_data.x = linegraph_x
             
@@ -98,37 +111,42 @@ def process_result_dic(result_dic):
 
 
 # Function to iterate over result_dic and perform the required operations
-def analyze_geodataframes(result_dic):
-    # Extract the base network data for comparison
+
+
+def analyze_geodataframes(result_dic: dict, consider_only_highway_edges: bool = True):
+    """
+    Analyse the results of the simulation and compare them to the base network data.
+
+    Parameters:
+    result_dic: The dictionary containing the results of the simulation as gdfs.
+    is_1pm (bool): True if the policy is introduced at 1pm, else False.
+    consider_only_highway_edges (bool): Compute the total volume and capacity for only those edges on "highstreets" if set to "True", for all edges otherwise.
+    """
     base_gdf = result_dic.get("base_network_no_policies")
-    if base_gdf is not None:
-        base_vol_car = base_gdf['vol_car'].sum()
-        base_gdf_car = base_gdf[base_gdf['modes'].str.contains('car')]
-        base_capacity_car = base_gdf_car['capacity'].sum() * 0.05
-        # base_freespeed_car = base_gdf_car['freespeed'].sum()
+    if base_gdf is None:
+        raise ValueError("Base network data not found in the result dictionary")
+    highway_types = ["primary", "secondary", "tertiary", "primary_link", "secondary_link", "tertiary_link"]
+    if consider_only_highway_edges:
+        base_gdf = base_gdf[base_gdf["highway"].isin(highway_types)]
+    base_vol_car = round(base_gdf['vol_car'].sum())
+    base_capacity_car = round(base_gdf['capacity'].sum())
+    # print(f"Base, volume: {base_vol_car}")
+    # print(f"Base, capacity: {base_capacity_car}")
 
     for policy, gdf in result_dic.items():
+        if (policy == "base_network_no_policies"):
+            continue
         print(f"Policy: {policy}")
-        
-        # Filter edges where 'modes' contains 'car'
-        gdf_car = gdf[gdf['modes'].str.contains('car')]
-        total_capacity_car = round(gdf_car['capacity'].sum() * 0.005)
-        print(f"Total capacity of edges with 'car' mode: {total_capacity_car}")
-        
-        # total_freespeed_car = round(gdf_car['freespeed'].sum())
-        # print(f"Total freespeed of edges with 'car' mode: {total_freespeed_car}")
-
+        if consider_only_highway_edges:
+            gdf = gdf[gdf["highway"].isin(highway_types)]
         total_vol_car = gdf['vol_car'].sum()
-        # print(f"Total 'vol_car': {total_vol_car}")
-
-        if policy != "base_network_no_policies" and base_gdf is not None:
-            vol_car_increase = ((total_vol_car - base_vol_car) / base_vol_car) * 100
-            capacity_car_increase = ((total_capacity_car - base_capacity_car) / base_capacity_car) * 100
-            # freespeed_car_increase = ((total_freespeed_car - base_freespeed_car) / base_freespeed_car) * 100
-
-            print(f"Percentage increase in 'vol_car': {vol_car_increase:.2f}%")
-            print(f"Percentage increase in capacity (car edges): {capacity_car_increase:.2f}%")
-            # print(f"Percentage increase in freespeed (car edges): {freespeed_car_increase:.2f}%")
+        total_capacity_car = round(gdf['capacity'].sum())
+        vol_car_increase = ((total_vol_car - base_vol_car) / base_vol_car) * 100
+        capacity_car_increase = ((total_capacity_car - base_capacity_car) / base_capacity_car) * 100
+        # print(f"With policy, volume: {total_vol_car}")
+        # print(f"With policy, capacity: {total_capacity_car}")
+        print(f"Total change in 'vol_car': {vol_car_increase:.2f}%")
+        print(f"Total change in capacity (car edges): {capacity_car_increase:.2f}%")
         
         
 # Define a dictionary to map each mode to an integer
@@ -198,9 +216,8 @@ def plot_simulation_output(df, districts_of_interest: list):
     
     # Filter edges based on the "osm:way:highway" column
     highway_types = ["primary", "secondary", "tertiary", "primary_link", "secondary_link", "tertiary_link"]
-    gdf = gdf[gdf["osm:way:highway"].isin(highway_types)]
+    gdf = gdf[gdf["highway"].isin(highway_types)]
     
-    # Identify districts 1, 2, 3, 4
     target_districts = districts[districts['c_ar'].isin(districts_of_interest)]
     other_districts = districts[~districts['c_ar'].isin(districts_of_interest)]
 
@@ -209,7 +226,6 @@ def plot_simulation_output(df, districts_of_interest: list):
     # Use TwoSlopeNorm for custom normalization
     norm = TwoSlopeNorm(vmin=gdf['vol_car'].min(), vcenter=gdf['vol_car'].median(), vmax=gdf['vol_car'].max())
     
-
     # Plot the edges that intersect with target districts thicker
     gdf[gdf['intersects_target_districts']].plot(column='vol_car', cmap='coolwarm', linewidth=4, ax=ax, legend=False,
              norm=norm, label = "Higher order roads", zorder=2)
@@ -246,7 +262,6 @@ def plot_simulation_output(df, districts_of_interest: list):
         label.set_fontsize(15)
     ax.legend(prop={'family': 'Times New Roman', 'size': 15})
     
-    # Adjust layout to make space for color bar
     # Manually set the position of the main plot axis
     ax.set_position([0.1, 0.1, 0.75, 0.75])
 
@@ -293,6 +308,22 @@ def read_network_data(file_path):
     if os.path.exists(file_path):
         # Read the CSV file with the correct delimiter
         df = pd.read_csv(file_path, delimiter=';')
+        # Convert the 'geometry' column to actual geometrical data
+        df['geometry'] = df['geometry'].apply(wkt.loads)
+        
+        # Create a GeoDataFrame
+        gdf = gpd.GeoDataFrame(df, geometry='geometry')
+        return gdf
+    else:
+        return None
+    
+# Function to read and convert CSV.GZ to GeoDataFrame
+def read_output_links(folder):
+    file_path = os.path.join(folder, 'output_links.csv.gz')
+    if os.path.exists(file_path):
+        # Read the CSV file with the correct delimiter
+        df = pd.read_csv(file_path, delimiter=';')
+        
         # Convert the 'geometry' column to actual geometrical data
         df['geometry'] = df['geometry'].apply(wkt.loads)
         
@@ -397,7 +428,7 @@ def remove_columns(gdf_with_correct_columns, gdf_to_be_adapted):
     gdf1_filtered = gdf_to_be_adapted[columns_to_keep]
     return gdf1_filtered
 
-def extend_geodataframe(gdf_base, gdf_to_extend, column_name):
+def extend_geodataframe(gdf_base, gdf_to_extend, column_to_extend: str, new_column_name: str):
     """
     Extend a GeoDataFrame by adding a column from another GeoDataFrame.
     
@@ -405,18 +436,20 @@ def extend_geodataframe(gdf_base, gdf_to_extend, column_name):
     gdf_base (GeoDataFrame): The GeoDataFrame containing the column to add
     gdf_to_extend (GeoDataFrame): The GeoDataFrame to be extended
     column_name (str): The column name to add to gdf_to_extend
+    new_column_name (str): The new column name to use in gdf_to_extend
+
     
     Returns:
     GeoDataFrame: A new GeoDataFrame with the column added
     """
     # Ensure the column exists in the base GeoDataFrame
-    if column_name not in gdf_base.columns:
-        raise ValueError(f"Column '{column_name}' does not exist in the base GeoDataFrame")
+    if column_to_extend not in gdf_base.columns:
+        raise ValueError(f"Column '{column_to_extend}' does not exist in the base GeoDataFrame")
     
     # Create a copy of the GeoDataFrame to be extended
     extended_gdf = gdf_to_extend.copy()
     
     # Add the column from the base GeoDataFrame
-    extended_gdf[column_name] = gdf_base[column_name]
+    extended_gdf[new_column_name] = gdf_base[column_to_extend]
     
     return extended_gdf
