@@ -10,20 +10,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class RunSimulations1pmMultipleSeeds {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleSeeds.class.getName());
+public class RunSimulations1pctMultipleSeeds {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleSeeds.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
-        String configPath = "paris_1pm_config.xml";
+        String configPath = "paris_1pct_config.xml";
         // Change here to pop_1pm_policy_in_zone_1 for other case.
-        String workingDirectory = "ile_de_france/data/pop_1pm_basecase/";
+        String workingDirectory = "ile_de_france/data/pop_1pct_basecase/";
 
         // Create a fixed thread pool with 2 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(1);
         LOGGER.info("Starting simulations");
 
-        for (int i = 11; i <= 50; i++) { // Run 10 iterations
+        for (int i = 1; i <= 10; i++) { // Run 10 iterations
             final String outputDirectory = Paths.get(workingDirectory, "output_seed_" + i).toString();
             final int finalI = i;
             executor.submit(() -> {
@@ -43,9 +43,9 @@ public class RunSimulations1pmMultipleSeeds {
         executor.shutdown();
         try {
             // Increase the wait time for all tasks to complete
-            if (!executor.awaitTermination(24, TimeUnit.HOURS)) {
+            if (!executor.awaitTermination(300, TimeUnit.HOURS)) {
                 executor.shutdownNow();
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(360, TimeUnit.SECONDS)) {
                     LOGGER.severe("Executor did not terminate");
                 }
             }
@@ -69,9 +69,9 @@ public class RunSimulations1pmMultipleSeeds {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
-                "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "5",
-                "--config:qsim.numberOfThreads", "5",
+                "org.eqasim.ile_de_france.RunSimulation1pct",
+                "--config:global.numberOfThreads", "12",
+                "--config:qsim.numberOfThreads", "12",
                 "--config:global.randomSeed", String.valueOf(seed),
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
@@ -84,7 +84,7 @@ public class RunSimulations1pmMultipleSeeds {
 
         boolean interrupted = false;
         try {
-            boolean finished = process.waitFor(10, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(60, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: ");
