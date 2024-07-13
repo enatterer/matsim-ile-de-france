@@ -67,7 +67,9 @@ def process_result_dic(result_dic):
             gdf['to_idx'] = gdf['to_node'].map(node_to_idx)
             
             edges = gdf[['from_idx', 'to_idx']].values
-            edge_car_volumes = gdf['vol_car'].values
+            # edge_car_volumes = gdf['vol_car'].values
+            edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
+
             capacities = gdf['capacity'].values
             freespeeds = gdf['freespeed'].values  
             lengths = gdf['length'].values  
@@ -85,7 +87,7 @@ def process_result_dic(result_dic):
             x = torch.zeros((len(nodes), 1), dtype=torch.float)
             
             # Create Data object
-            target_values = torch.tensor(edge_car_volumes, dtype=torch.float).unsqueeze(1)
+            target_values = torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
             data = Data(edge_index=edge_index, x=x, pos=edge_positions_tensor)
             
             # Transform to line graph
