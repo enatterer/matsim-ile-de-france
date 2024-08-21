@@ -52,6 +52,7 @@ def process_result_dic(result_dic):
     linegraph_transformation = LineGraph()
     base_network_no_policies = result_dic.get("base_network_no_policies")
     vol_base_case = base_network_no_policies['vol_car'].values
+    capacity_base_case = base_network_no_policies['capacity'].values
 
     for key, df in result_dic.items():
         if isinstance(df, pd.DataFrame):
@@ -69,12 +70,40 @@ def process_result_dic(result_dic):
             edges = gdf[['from_idx', 'to_idx']].values
             # edge_car_volumes = gdf['vol_car'].values
             edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
+            # if vol_base_case == 0:
+            #     if edge_car_volume_difference == 0:
+            #         edge_car_volume_difference_in_percent = 0
+            #     else:
+            #         edge_car_volume_difference_in_percent = 1
+            #         print("now it is not zero where before it was zero")
+                    
+            # edge_car_volume_difference_in_percent = edge_car_volume_difference / vol_base_case 
+            
+            # Initialize the percentage difference array
+            # edge_car_volume_difference_in_percent = np.zeros_like(edge_car_volume_difference, dtype=float)
+
+            # # Handle cases where vol_base_case is zero
+            # for i in range(len(vol_base_case)):
+            #     if vol_base_case[i] == 0:
+            #         if edge_car_volume_difference[i] == 0:
+            #             edge_car_volume_difference_in_percent[i] = 0
+            #         else:
+            #             edge_car_volume_difference_in_percent[i] = 100  # or any large number to indicate infinity
+            #             print(f"Edge {i}: now it is not zero where before it was zero")
+            #     else:
+            #         edge_car_volume_difference_in_percent[i] = edge_car_volume_difference[i] / vol_base_case[i] * 100
+
+            # # Add these calculations as new columns to the GeoDataFrame
+            # gdf['edge_car_volume_difference'] = edge_car_volume_difference
+            # gdf['edge_car_volume_difference_in_percent'] = edge_car_volume_difference_in_percent
+
 
             capacities = gdf['capacity'].values
-            freespeeds = gdf['freespeed'].values  
-            lengths = gdf['length'].values  
-            modes = gdf['modes'].values
-            modes_encoded = np.vectorize(encode_modes)(modes)
+            capacity_reduction = gdf['capacity'].values - capacity_base_case
+            # freespeeds = gdf['freespeed'].values  
+            # lengths = gdf['length'].values  
+            # modes = gdf['modes'].values
+            # modes_encoded = np.vectorize(encode_modes)(modes)
             highway = gdf['highway'].apply(lambda x: highway_mapping.get(x, -1)).values
             
             edge_positions = np.array([((geom.coords[0][0] + geom.coords[-1][0]) / 2, 
@@ -94,7 +123,8 @@ def process_result_dic(result_dic):
             linegraph_data = linegraph_transformation(data)
             
             # Prepare the x for line graph: index and capacity
-            linegraph_x = torch.tensor(np.column_stack((capacities, vol_base_case, highway, freespeeds, lengths, modes_encoded)), dtype=torch.float)
+            # linegraph_x = torch.tensor(np.column_stack((capacities, vol_base_case, highway)), dtype=torch.float)
+            linegraph_x = torch.tensor(np.column_stack((capacities, capacity_reduction, vol_base_case, highway)), dtype=torch.float)
 
             linegraph_data.x = linegraph_x
             
@@ -199,8 +229,14 @@ def create_policy_key_1pm(folder_name):
 def is_single_district(filename):
     return filename.count('_') == 2
 
-def plot_simulation_output(df, districts_of_interest: list):
+
+
+
+def plot_simulation_output(df, districts_of_interest: list, is_for_1pm: str, in_percentage: bool):
     # Convert DataFrame to GeoDataFrame
+    
+    column_to_plot = "vol_car" if in_percentage else "vol_car_percentage_difference"
+    
     gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:2154")
     gdf = gdf.to_crs(epsg=4326)
 
@@ -226,19 +262,19 @@ def plot_simulation_output(df, districts_of_interest: list):
     gdf['intersects_target_districts'] = gdf.apply(lambda row: target_districts.intersects(row.geometry).any(), axis=1)
 
     # Use TwoSlopeNorm for custom normalization
-    norm = TwoSlopeNorm(vmin=gdf['vol_car'].min(), vcenter=gdf['vol_car'].median(), vmax=gdf['vol_car'].max())
+    norm = TwoSlopeNorm(vmin=gdf[column_to_plot].min(), vcenter=gdf[column_to_plot].median(), vmax=gdf[column_to_plot].max())
     
     # Plot the edges that intersect with target districts thicker
-    gdf[gdf['intersects_target_districts']].plot(column='vol_car', cmap='coolwarm', linewidth=4, ax=ax, legend=False,
+    gdf[gdf['intersects_target_districts']].plot(column=column_to_plot, cmap='coolwarm', linewidth=4, ax=ax, legend=False,
              norm=norm, label = "Higher order roads", zorder=2)
     
     # Plot the other edges
-    gdf[~gdf['intersects_target_districts']].plot(column='vol_car', cmap='coolwarm', linewidth=4, ax=ax, legend=False,
+    gdf[~gdf['intersects_target_districts']].plot(column=column_to_plot, cmap='coolwarm', linewidth=4, ax=ax, legend=False,
              norm=norm, zorder=1)
     
     # Add buffer to target districts to avoid overlapping with edges
     buffered_target_districts = target_districts.copy()
-    buffered_target_districts['geometry'] = buffered_target_districts.buffer(0.001)
+    buffered_target_districts['geometry'] = buffered_target_districts.buffer(0.0005)
     # Ensure the buffered_target_districts GeoDataFrame is in the same CRS
     if buffered_target_districts.crs != gdf.crs:
         buffered_target_districts.to_crs(gdf.crs, inplace=True)
@@ -281,8 +317,11 @@ def plot_simulation_output(df, districts_of_interest: list):
         t.set_fontname('Times New Roman')
     cbar.ax.yaxis.label.set_fontname('Times New Roman')
     cbar.ax.yaxis.label.set_size(15)
-    cbar.set_label('Car volume: Difference to base case', fontname='Times New Roman', fontsize=15)
-    plt.savefig("results/difference_to_policies_in_zones_" + list_to_string(districts_of_interest, "_"), bbox_inches='tight')
+    if in_percentage:
+        cbar.set_label('Car volume: Difference to base case (%)', fontname='Times New Roman', fontsize=15)
+    else:
+        cbar.set_label('Car volume: Difference to base case (absolut)', fontname='Times New Roman', fontsize=15)
+    plt.savefig("results/difference_to_policies_in_zones_" + list_to_string(districts_of_interest, "_") + is_for_1pm, bbox_inches='tight')
     plt.show()
     
 def list_to_string(integers, delimiter=', '):
@@ -298,8 +337,7 @@ def list_to_string(integers, delimiter=', '):
     """
     return delimiter.join(map(str, integers))
 
-def get_subdirs(directory: str):
-    full_path = '../../../../data/' + directory + "/"
+def get_subdirs(full_path: str):
     subdirs_pattern = os.path.join(full_path, 'output_seed_*')
     subdirs_list = list(set(glob.glob(subdirs_pattern)))
     subdirs_list.sort()
@@ -323,15 +361,19 @@ def read_network_data(file_path):
 def read_output_links(folder):
     file_path = os.path.join(folder, 'output_links.csv.gz')
     if os.path.exists(file_path):
-        # Read the CSV file with the correct delimiter
-        df = pd.read_csv(file_path, delimiter=';')
+        try:
+            # Read the CSV file with the correct delimiter
+            df = pd.read_csv(file_path, delimiter=';')
         
-        # Convert the 'geometry' column to actual geometrical data
-        df['geometry'] = df['geometry'].apply(wkt.loads)
-        
-        # Create a GeoDataFrame
-        gdf = gpd.GeoDataFrame(df, geometry='geometry')
-        return gdf
+            # Convert the 'geometry' column to actual geometrical data
+            df['geometry'] = df['geometry'].apply(wkt.loads)
+            
+            # Create a GeoDataFrame
+            gdf = gpd.GeoDataFrame(df, geometry='geometry')
+            return gdf
+        except Exception:
+            print("empty data error" + file_path)
+            return None
     else:
         return None
     
@@ -412,7 +454,10 @@ def compute_difference_geodataframe(gdf_to_substract_from, gdf_to_substract, col
 
     # Compute the difference for the specified column
     difference_gdf[column_name] = gdf_to_substract_from[column_name] - gdf_to_substract[column_name]
-
+    difference_gdf[column_name + "_percentage_difference"] =  (
+        difference_gdf[column_name] / gdf_to_substract[column_name] * 100
+    )
+ 
     return difference_gdf
 
 def remove_columns(gdf_with_correct_columns, gdf_to_be_adapted):
