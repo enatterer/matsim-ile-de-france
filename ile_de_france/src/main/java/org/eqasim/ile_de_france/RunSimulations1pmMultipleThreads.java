@@ -27,18 +27,18 @@ public class RunSimulations1pmMultipleThreads {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pm_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pm_with_policies/networks/";
+        String workingDirectory = "ile_de_france/data/pop_1pm_policies_combinations_with_normal_dist/";
+        String networkDirectory = "ile_de_france/data/pop_1pm_policies_combinations_with_normal_dist/networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 15 threads
-        ExecutorService executor = Executors.newFixedThreadPool(6);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
         LOGGER.info("Starting simulations");
 
-        for (int i = 1500; i <= 5000; i += 100) {
+        for (int i = 100; i <= 1000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -186,11 +186,11 @@ public class RunSimulations1pmMultipleThreads {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
 
-        final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g","-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms40g", "-Xmx40g","-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "12",
-                "--config:qsim.numberOfThreads", "12",
+                "--config:global.numberOfThreads", "24",
+                "--config:qsim.numberOfThreads", "24",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
@@ -245,6 +245,7 @@ public class RunSimulations1pmMultipleThreads {
                     String fileName = path.getFileName().toString();
                     if (!fileName.equals("output_links.csv.gz")
                             && !fileName.equals("eqasim_pt.csv")
+                            && !fileName.equals("eqasim_trips.csv")
                             && !fileName.equals("output_trips.csv.gz")) {
                         Files.delete(path);
                         LOGGER.info("Deleted file: " + path);
