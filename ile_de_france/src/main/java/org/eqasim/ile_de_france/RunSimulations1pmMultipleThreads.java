@@ -186,7 +186,7 @@ public class RunSimulations1pmMultipleThreads {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
 
-        final List<String> arguments = Arrays.asList("java", "-Xms40g", "-Xmx40g","-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms20g", "-Xmx20g","-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
                 "--config:global.numberOfThreads", "24",
