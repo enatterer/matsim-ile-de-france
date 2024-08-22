@@ -38,7 +38,7 @@ public class RunSimulations1pmMultipleThreads {
 
         LOGGER.info("Starting simulations");
 
-        for (int i = 100; i <= 1000; i += 100) {
+        for (int i = 100; i <= 11000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
