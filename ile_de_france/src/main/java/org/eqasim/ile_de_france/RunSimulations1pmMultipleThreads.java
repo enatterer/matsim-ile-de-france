@@ -189,8 +189,8 @@ public class RunSimulations1pmMultipleThreads {
         final List<String> arguments = Arrays.asList("java", "-Xms20g", "-Xmx20g","-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "24",
-                "--config:qsim.numberOfThreads", "24",
+                "--config:global.numberOfThreads", "4",
+                "--config:qsim.numberOfThreads", "4",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
