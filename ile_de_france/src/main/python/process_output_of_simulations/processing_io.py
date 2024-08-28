@@ -225,12 +225,8 @@ def create_policy_key_1pm(folder_name):
     districts = district_info.split('_')
     return f"Policy introduced in Arrondissement(s) {', '.join(districts)}"
 
-
 def is_single_district(filename):
     return filename.count('_') == 2
-
-
-
 
 def plot_simulation_output(df, districts_of_interest: list, is_for_1pm: str, in_percentage: bool):
     # Convert DataFrame to GeoDataFrame
