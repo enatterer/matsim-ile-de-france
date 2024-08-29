@@ -13,6 +13,7 @@ ile_de_france/src/main/python/process_output_of_simulations/__pycache__
 ile_de_france/src/main/python/process_output_of_simulations/results/*
 ile_de_france/src/main/python/creating_subgraphs/__pycache__
 ile_de_france/src/main/python/understand_data/intermediate_results/*
+ile_de_france/src/main/python/creating_subgraphs/datasets_created/*
 
 # Ignore .DS_Store files
 .DS_Store
