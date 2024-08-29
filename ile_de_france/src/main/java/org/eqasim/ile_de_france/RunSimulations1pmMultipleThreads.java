@@ -21,7 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RunSimulations1pmMultipleThreads {
+public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleThreads.class.getName());
 
     static public void main(String[] args) throws Exception {
@@ -161,17 +161,6 @@ public class RunSimulations1pmMultipleThreads {
         return exists;
     }
 
-    private static void deleteRecursively(Path path) throws IOException {
-        if (Files.isDirectory(path)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
-                for (Path entry : stream) {
-                    deleteRecursively(entry);
-                }
-            }
-        }
-        Files.delete(path);
-    }
-
     /**
      * Runs the MATSim simulation with the given configuration path and output directory.
      *
@@ -229,35 +218,35 @@ public class RunSimulations1pmMultipleThreads {
      *
      * @param outputDirectory The directory from which files and folders will be deleted.
      */
-    private static void deleteUnwantedFiles(String outputDirectory) {
-        Path dir = Paths.get(outputDirectory);
-        if (!Files.exists(dir)) {
-            LOGGER.warning("Output directory does not exist: " + outputDirectory);
-            return;
-        }
+    // private static void deleteUnwantedFiles(String outputDirectory) {
+    //     Path dir = Paths.get(outputDirectory);
+    //     if (!Files.exists(dir)) {
+    //         LOGGER.warning("Output directory does not exist: " + outputDirectory);
+    //         return;
+    //     }
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (Files.isDirectory(path)) {
-                    LOGGER.info("Deleting directory: " + path);
-                    deleteDirectoryRecursively(path);
-                } else {
-                    String fileName = path.getFileName().toString();
-                    if (!fileName.equals("output_links.csv.gz")
-                            && !fileName.equals("eqasim_pt.csv")
-                            && !fileName.equals("eqasim_trips.csv")
-                            && !fileName.equals("output_trips.csv.gz")) {
-                        Files.delete(path);
-                        LOGGER.info("Deleted file: " + path);
-                    } else {
-                        LOGGER.info("Skipping file: " + path);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
-        }
-    }
+    //     try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+    //         for (Path path : stream) {
+    //             if (Files.isDirectory(path)) {
+    //                 LOGGER.info("Deleting directory: " + path);
+    //                 deleteDirectoryRecursively(path);
+    //             } else {
+    //                 String fileName = path.getFileName().toString();
+    //                 if (!fileName.equals("output_links.csv.gz")
+    //                         && !fileName.equals("eqasim_pt.csv")
+    //                         && !fileName.equals("eqasim_trips.csv")
+    //                         && !fileName.equals("output_trips.csv.gz")) {
+    //                     Files.delete(path);
+    //                     LOGGER.info("Deleted file: " + path);
+    //                 } else {
+    //                     LOGGER.info("Skipping file: " + path);
+    //                 }
+    //             }
+    //         }
+    //     } catch (IOException e) {
+    //         LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
+    //     }
+    // }
 
     /**
      * Recursively deletes a directory and its contents.
@@ -265,18 +254,18 @@ public class RunSimulations1pmMultipleThreads {
      * @param directory The directory to be deleted.
      * @throws IOException If an I/O error occurs.
      */
-    private static void deleteDirectoryRecursively(Path directory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    deleteDirectoryRecursively(entry);
-                } else {
-                    Files.delete(entry);
-                    LOGGER.info("Deleted file: " + entry);
-                }
-            }
-        }
-        Files.delete(directory);
-        LOGGER.info("Deleted directory: " + directory);
-    }
+    // private static void deleteDirectoryRecursively(Path directory) throws IOException {
+    //     try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
+    //         for (Path entry : stream) {
+    //             if (Files.isDirectory(entry)) {
+    //                 deleteDirectoryRecursively(entry);
+    //             } else {
+    //                 Files.delete(entry);
+    //                 LOGGER.info("Deleted file: " + entry);
+    //             }
+    //         }
+    //     }
+    //     Files.delete(directory);
+    //     LOGGER.info("Deleted directory: " + directory);
+    // }
 }

@@ -10,20 +10,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class RunSimulations1pmMultipleSeeds {
+public class RunSimulations1pmMultipleSeeds extends SimulationRunnerBase{
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pmMultipleSeeds.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        // Change here to pop_1pm_policy_in_zone_1 for other case.
-        String workingDirectory = "ile_de_france/data/pop_1pm_basecase/";
+        String workingDirectory = "ile_de_france/data/pop_1pm_simulations/pop_1pm_basecase/";
 
         // Create a fixed thread pool with 2 threads
         ExecutorService executor = Executors.newFixedThreadPool(2);
         LOGGER.info("Starting simulations");
 
-        for (int i = 11; i <= 50; i++) { // Run 10 iterations
+        for (int i = 0; i <= 50; i++) { // Run 10 iterations
             final String outputDirectory = Paths.get(workingDirectory, "output_seed_" + i).toString();
             final int finalI = i;
             executor.submit(() -> {
@@ -70,8 +69,8 @@ public class RunSimulations1pmMultipleSeeds {
         final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "5",
-                "--config:qsim.numberOfThreads", "5",
+                "--config:global.numberOfThreads", "4",
+                "--config:qsim.numberOfThreads", "4",
                 "--config:global.randomSeed", String.valueOf(seed),
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
@@ -103,60 +102,5 @@ public class RunSimulations1pmMultipleSeeds {
             }
         }
         LOGGER.info("Completed simulation");
-    }
-
-    /**
-     * Deletes all files and folders in the specified directory except for the specified files.
-     *
-     * @param outputDirectory The directory from which files and folders will be deleted.
-     */
-    private static void deleteUnwantedFiles(String outputDirectory) {
-        Path dir = Paths.get(outputDirectory);
-        if (!Files.exists(dir)) {
-            LOGGER.warning("Output directory does not exist: " + outputDirectory);
-            return;
-        }
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (Files.isDirectory(path)) {
-                    LOGGER.info("Deleting directory: " + path);
-                    deleteDirectoryRecursively(path);
-                } else {
-                    String fileName = path.getFileName().toString();
-                    if (!fileName.equals("output_links.csv.gz")
-                            && !fileName.equals("eqasim_pt.csv")
-                            && !fileName.equals("output_trips.csv.gz")) {
-                        Files.delete(path);
-                        LOGGER.info("Deleted file: " + path);
-                    } else {
-                        LOGGER.info("Skipping file: " + path);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
-        }
-    }
-
-    /**
-     * Recursively deletes a directory and its contents.
-     *
-     * @param directory The directory to be deleted.
-     * @throws IOException If an I/O error occurs.
-     */
-    private static void deleteDirectoryRecursively(Path directory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    deleteDirectoryRecursively(entry);
-                } else {
-                    Files.delete(entry);
-                    LOGGER.info("Deleted file: " + entry);
-                }
-            }
-        }
-        Files.delete(directory);
-        LOGGER.info("Deleted directory: " + directory);
     }
 }
