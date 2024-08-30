@@ -175,7 +175,7 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
 
-        final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g","-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms10g", "-Xmx10g","-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
                 "--config:global.numberOfThreads", "4",
