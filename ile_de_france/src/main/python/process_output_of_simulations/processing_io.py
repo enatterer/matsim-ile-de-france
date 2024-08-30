@@ -381,7 +381,7 @@ def extract_numbers(path):
     # Convert the list of numbers to a set of integers
     return set(map(int, numbers))
 
-def create_dic(subdir: str):
+def create_dic_seed_2_output_links(subdir: str):
     result_dic = {}
     for s in subdir:
         # print(f'Accessing folder: {s}')
@@ -390,6 +390,17 @@ def create_dic(subdir: str):
         gdf = read_network_data(output_links)
         if gdf is not None:
             result_dic[str(random_seed)] = gdf
+    return result_dic
+
+def create_dic_seed_2_eqasim_trips(subdir: str):
+    result_dic = {}
+    for s in subdir:
+        random_seed = extract_numbers(s)
+        eqasim_trips = s + "/eqasim_trips.csv"
+        if os.path.exists(eqasim_trips):
+            df_eqasim_trips = pd.read_csv(eqasim_trips, delimiter=';')
+            if df_eqasim_trips is not None:
+                result_dic[str(random_seed)] = df_eqasim_trips
     return result_dic
 
 def compute_average_or_median_geodataframe(geodataframes, column_name, is_mean: bool = True):
