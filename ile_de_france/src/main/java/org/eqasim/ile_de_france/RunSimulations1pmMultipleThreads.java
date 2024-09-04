@@ -38,7 +38,8 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
 
         LOGGER.info("Starting simulations");
 
-        for (int i = 1000; i <= 11000; i += 1000) {
+//  This is for Threadripper! For RetinaRoaster, we go in steps of 1000
+        for (int i = 4000; i <= 5000; i += 100) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
