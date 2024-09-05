@@ -27,8 +27,9 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pm_policies_combinations_with_normal_dist/";
-        String networkDirectory = "ile_de_france/data/pop_1pm_policies_combinations_with_normal_dist/networks/";
+        
+        String workingDirectory = "ile_de_france/data/pop_1pm_speed_reduction/";
+        String networkDirectory = "ile_de_france/data/pop_1pm_speed_reduction/networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
@@ -38,8 +39,7 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
 
         LOGGER.info("Starting simulations");
 
-//  This is for Threadripper! For RetinaRoaster, we go in steps of 1000
-        for (int i = 4000; i <= 5000; i += 100) {
+        for (int i = 1000; i <= 10000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
