@@ -360,13 +360,7 @@ def read_output_links(folder):
         try:
             # Read the CSV file with the correct delimiter
             df = pd.read_csv(file_path, delimiter=';')
-        
-            # Convert the 'geometry' column to actual geometrical data
-            df['geometry'] = df['geometry'].apply(wkt.loads)
-            
-            # Create a GeoDataFrame
-            gdf = gpd.GeoDataFrame(df, geometry='geometry')
-            return gdf
+            return df
         except Exception:
             print("empty data error" + file_path)
             return None
