@@ -32,6 +32,37 @@ from matplotlib.colors import TwoSlopeNorm
 
 from shapely.ops import unary_union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from collections import defaultdict
+
+
+import os
+import glob
+import math
+import pickle
+
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import torch
+from collections import defaultdict
+
+import processing_io as pio
+from torch_geometric.transforms import LineGraph
+
+from torch_geometric.data import Data, Batch
+import shapely.wkt as wkt
+from tqdm import tqdm
+import fiona
+import os
+
+import alphashape
+from shapely.geometry import Polygon
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import torch
+from shapely.geometry import Point
+import random
+
 
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
 
@@ -47,99 +78,11 @@ highway_mapping = {
     'np.nan': -1
 }
 
-def process_result_dic(result_dic):
-    datalist = []
-    linegraph_transformation = LineGraph()
-    base_network_no_policies = result_dic.get("base_network_no_policies")
-    vol_base_case = base_network_no_policies['vol_car'].values
-    capacity_base_case = base_network_no_policies['capacity'].values
+# paris_inside_bvd_peripherique = "../../../../data/paris_inside_bvd_per/referentiel-comptages-edit.shp"
+# gdf_paris_inside_bvd_per = gpd.read_file(paris_inside_bvd_peripherique)
+# boundary_df = alphashape.alphashape(gdf_paris_inside_bvd_per, 435).exterior[0]
+# linear_ring_polygon = Polygon(boundary_df)
 
-    for key, df in result_dic.items():
-        if isinstance(df, pd.DataFrame):
-            gdf = gpd.GeoDataFrame(df, geometry='geometry')
-            gdf.crs = "EPSG:2154"  # Assuming the original CRS is EPSG:2154
-            gdf.to_crs("EPSG:4326", inplace=True)
-            
-            # Create dictionaries for nodes and edges
-            nodes = pd.concat([gdf['from_node'], gdf['to_node']]).unique()
-            node_to_idx = {node: idx for idx, node in enumerate(nodes)}
-            
-            gdf['from_idx'] = gdf['from_node'].map(node_to_idx)
-            gdf['to_idx'] = gdf['to_node'].map(node_to_idx)
-            
-            edges = gdf[['from_idx', 'to_idx']].values
-            # edge_car_volumes = gdf['vol_car'].values
-            edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
-            # if vol_base_case == 0:
-            #     if edge_car_volume_difference == 0:
-            #         edge_car_volume_difference_in_percent = 0
-            #     else:
-            #         edge_car_volume_difference_in_percent = 1
-            #         print("now it is not zero where before it was zero")
-                    
-            # edge_car_volume_difference_in_percent = edge_car_volume_difference / vol_base_case 
-            
-            # Initialize the percentage difference array
-            # edge_car_volume_difference_in_percent = np.zeros_like(edge_car_volume_difference, dtype=float)
-
-            # # Handle cases where vol_base_case is zero
-            # for i in range(len(vol_base_case)):
-            #     if vol_base_case[i] == 0:
-            #         if edge_car_volume_difference[i] == 0:
-            #             edge_car_volume_difference_in_percent[i] = 0
-            #         else:
-            #             edge_car_volume_difference_in_percent[i] = 100  # or any large number to indicate infinity
-            #             print(f"Edge {i}: now it is not zero where before it was zero")
-            #     else:
-            #         edge_car_volume_difference_in_percent[i] = edge_car_volume_difference[i] / vol_base_case[i] * 100
-
-            # # Add these calculations as new columns to the GeoDataFrame
-            # gdf['edge_car_volume_difference'] = edge_car_volume_difference
-            # gdf['edge_car_volume_difference_in_percent'] = edge_car_volume_difference_in_percent
-
-
-            capacities = gdf['capacity'].values
-            capacity_reduction = gdf['capacity'].values - capacity_base_case
-            # freespeeds = gdf['freespeed'].values  
-            # lengths = gdf['length'].values  
-            # modes = gdf['modes'].values
-            # modes_encoded = np.vectorize(encode_modes)(modes)
-            highway = gdf['highway'].apply(lambda x: highway_mapping.get(x, -1)).values
-            
-            edge_positions = np.array([((geom.coords[0][0] + geom.coords[-1][0]) / 2, 
-                                        (geom.coords[0][1] + geom.coords[-1][1]) / 2) 
-                                       for geom in gdf.geometry])
-
-            # Convert lists to tensors
-            edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
-            edge_positions_tensor = torch.tensor(edge_positions, dtype=torch.float)
-            x = torch.zeros((len(nodes), 1), dtype=torch.float)
-            
-            # Create Data object
-            target_values = torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
-            data = Data(edge_index=edge_index, x=x, pos=edge_positions_tensor)
-            
-            # Transform to line graph
-            linegraph_data = linegraph_transformation(data)
-            
-            # Prepare the x for line graph: index and capacity
-            # linegraph_x = torch.tensor(np.column_stack((capacities, vol_base_case, highway)), dtype=torch.float)
-            linegraph_x = torch.tensor(np.column_stack((capacities, capacity_reduction, vol_base_case, highway)), dtype=torch.float)
-
-            linegraph_data.x = linegraph_x
-            
-            # Target tensor for car volumes
-            linegraph_data.y = target_values
-            
-            if linegraph_data.validate(raise_on_error=True):
-                datalist.append(linegraph_data)
-            else:
-                print("Invalid line graph data")
-                
-    # Convert dataset to a list of dictionaries
-    data_dict_list = [{'x': lg_data.x, 'edge_index': lg_data.edge_index, 'pos': lg_data.pos, 'y': lg_data.y} for lg_data in datalist]
-    
-    return data_dict_list
 
 
 # Function to iterate over result_dic and perform the required operations
@@ -501,3 +444,611 @@ def extend_geodataframe(gdf_base, gdf_to_extend, column_to_extend: str, new_colu
     extended_gdf[new_column_name] = gdf_base[column_to_extend]
     
     return extended_gdf
+
+def compute_close_homes(links_gdf_input:pd.DataFrame, information_gdf_input:pd.DataFrame, utm_crs:str, distance:int=50):
+    links_gdf = links_gdf_input.copy()
+    information_gdf = information_gdf_input.copy()
+    close_places = []
+    links_gdf_utm = links_gdf.to_crs(utm_crs)
+    information_gdf_utm = information_gdf.to_crs(utm_crs)
+    for i, row in tqdm(enumerate(links_gdf_utm.iterrows()), desc="Processing rows", unit="row"):
+        buffer_utm = row[1].geometry.buffer(distance=distance)
+        buffer = gpd.GeoSeries([buffer_utm], crs=utm_crs).to_crs(links_gdf_utm.crs)[0]
+        matched_information = information_gdf_utm[information_gdf_utm.geometry.within(buffer)]
+        socioprofessional_classes = matched_information['socioprofessional_class'].tolist()
+        close_places.append((len(socioprofessional_classes), socioprofessional_classes))
+    return close_places
+
+def process_close_count_to_tensor(close_count_list: list):
+    socio_professional_classes = [item[1] for item in close_count_list]
+    unique_classes = set([2, 3, 4, 5, 6, 7, 8])
+    class_to_index = {cls: idx for idx, cls in enumerate(unique_classes)}
+
+    tensor_shape = (len(close_count_list), len(unique_classes))
+    close_homes_tensor = torch.zeros(tensor_shape)
+
+    for i, classes in enumerate(socio_professional_classes):
+        for cls in classes:
+            if cls in class_to_index:  # Ensure the class is in the predefined set
+                close_homes_tensor[i, class_to_index[cls]] += 1
+    
+    close_homes_tensor_sparse = close_homes_tensor.to_sparse()
+    return close_homes_tensor_sparse
+
+
+def calculate_averaged_results(trips_df):
+    """Calculate average travel time and routed distance grouped by mode."""
+    return trips_df.groupby('mode').agg(
+        total_travel_time=('travel_time', 'mean'),
+        total_routed_distance=('routed_distance', 'mean')
+    ).reset_index()
+
+
+def encode_modes(gdf):
+    """Encode the 'modes' attribute based on specific strings."""
+    modes_conditions = {
+        'car': gdf['modes'].str.contains('car', case=False, na=False).astype(int),
+        'bus': gdf['modes'].str.contains('bus', case=False, na=False).astype(int),
+        'pt': gdf['modes'].str.contains('pt', case=False, na=False).astype(int),
+        'train': gdf['modes'].str.contains('train', case=False, na=False).astype(int),
+        'rail': gdf['modes'].str.contains('rail', case=False, na=False).astype(int),
+        'subway': gdf['modes'].str.contains('subway', case=False, na=False).astype(int)
+    }
+    modes_encoded = pd.DataFrame(modes_conditions)
+    tensor_list = [torch.tensor(modes_encoded[col].values, dtype=torch.float) for col in modes_encoded.columns]
+    print(len(tensor_list))
+    return tensor_list
+    # return torch.tensor(modes_encoded.values, dtype=torch.float)
+
+
+def encode_modes_string(mode_string):
+    """Encode the 'modes' attribute based on specific strings."""
+    modes_conditions = {
+        'car': int("car" in mode_string),
+        'bus': int("bus" in mode_string),
+        'pt': int("pt" in mode_string),
+        'train': int("train" in mode_string),
+        'rail': int("rail" in mode_string),
+        'subway': int("subway" in mode_string),
+    }
+    modes_encoded_tensor = torch.tensor(list(modes_conditions.values()), dtype=torch.float)
+    return modes_encoded_tensor
+
+def get_dfs(base_dir:str):
+    files = os.listdir(base_dir)
+    for file in files:
+        file_path = os.path.join(base_dir, file)
+        base_name, ext = os.path.splitext(file)
+        if base_name.startswith("idf_1pm_"):
+            base_name = base_name.replace("idf_1pm_", "")
+        var_name = base_name  # Start with the cleaned base name
+    
+        if file.endswith('.csv'):
+            try:
+                var_name = f"{var_name}_df"  
+                globals()[var_name] = pd.read_csv(file_path, sep=";")
+                print(f"Loaded CSV file: {file} into variable: {var_name}")
+            except Exception as e:
+                print(f"Error loading CSV file {file}: {e}")
+            
+        elif file.endswith('.gpkg'):
+            try:
+                var_name = f"{var_name}_gdf"  
+                layers = fiona.listlayers(file_path)
+                geodataframes = {layer: gpd.read_file(file_path, layer=layer, geometry = 'geometry', crs="EPSG:2154") for layer in layers}
+                for layer, gdf in geodataframes.items():
+                # print(f"Layer: {layer}")
+                    gdf = gdf.to_crs(epsg=4326)
+                    globals()[var_name] = gdf
+                    print(f"Loaded GPKG file: {file} into variable: {var_name}")
+            except Exception as e:
+                print(f"Error loading CSV file {file}: {e}")
+    homes_gdf = globals()["homes_gdf"]
+    households_df = globals()["households_df"]
+    persons_df = globals()["persons_df"]
+    activities_gdf = globals()["activities_gdf"]
+    trips_df = globals()["trips_gdf"]
+    return homes_gdf, households_df, persons_df, activities_gdf, trips_df
+
+def extract_start_end_points(geometry):
+    if len(geometry.coords) != 2:
+        raise ValueError("Linestring does not have exactly 2 elements.")
+    return geometry.coords[0], geometry.coords[-1]
+
+def get_close_trips_tensor(links_gdf_input, trips_gdf_input, utm_crs, distance):
+    close_trips_count = compute_close_homes(links_gdf_input = links_gdf_input, information_gdf_input = trips_gdf_input, utm_crs = utm_crs, distance=distance)
+    close_trips_count_tensor = process_close_count_to_tensor(close_trips_count)
+    return close_trips_count, close_trips_count_tensor
+
+def get_start_and_end_gdf(trips_with_socio, crs):
+    trips_start = trips_with_socio.copy()
+    trips_end = trips_with_socio.copy()
+
+    trips_start_gdf = gpd.GeoDataFrame(
+    trips_start, 
+    geometry=gpd.points_from_xy(
+        trips_start['start_point'].apply(lambda p: p[0]), 
+        trips_start['start_point'].apply(lambda p: p[1])
+    ), 
+    crs=crs
+)
+
+    trips_end_gdf = gpd.GeoDataFrame(
+    trips_end, 
+    geometry=gpd.points_from_xy(
+        trips_end['end_point'].apply(lambda p: p[0]), 
+        trips_end['end_point'].apply(lambda p: p[1])
+    ), 
+    crs=crs
+)
+    return trips_start_gdf,trips_end_gdf
+
+def process_centroid(geom_list):
+    if not geom_list:  # Empty list
+        return [np.nan, np.nan, np.nan]
+    elif len(geom_list) == 1:
+        return [geom_list[0], np.nan, np.nan]
+    elif len(geom_list) == 2:
+        return [geom_list[0], geom_list[1], np.nan]
+    else:
+        return [geom_list[0], geom_list[1], geom_list[2]]
+    
+def extract_point_coordinates(geom_list):
+    coordinates = []
+    for geom in geom_list:
+        if isinstance(geom, Point):
+            coordinates.append((geom.x, geom.y))
+        else:
+            coordinates.append((np.nan, np.nan))
+    return coordinates
+
+def process_value_list(perimeter_list):
+    if not perimeter_list:  # Empty list
+        return [np.nan, np.nan, np.nan]
+    elif len(perimeter_list) == 1:
+        return [perimeter_list[0], np.nan, np.nan]
+    elif len(perimeter_list) == 2:
+        return [perimeter_list[0], perimeter_list[1], np.nan]
+    else:
+        return [perimeter_list[0], perimeter_list[1], perimeter_list[2]]
+    
+def compute_district_2_information_counts(district_information_counts, column_to_filter_for):
+    district_group_2_information_counts = {}
+    for district, group in district_information_counts:        
+        # ignore groups with more than one district here. 
+        if len(district) == 1:
+            total_counts = 0
+            total_distributions = []
+            counts = group[column_to_filter_for].values            
+            for c in counts:
+                total_counts += c[0]
+                if c[1] is not None and len(c[1]) > 0:
+                    total_distributions.extend(c[1])
+            distribution_counts = [total_distributions.count(i) for i in range(2, 9)]   
+            district_group_2_information_counts[district] = distribution_counts
+    return district_group_2_information_counts, distribution_counts
+
+def compute_district_2_information_tensor(district_2_information_counts, distribution_counts, gdf_input):
+    district_home_counts_tensor = torch.zeros((len(gdf_input), 3, len(distribution_counts)), dtype=torch.float)
+    nan_tensor = torch.full((len(distribution_counts),), float('nan'))
+
+    for idx, row in gdf_input.iterrows():
+        district_combination = row['district']
+        district_combination_tuple = tuple(district_combination)
+        if len(district_combination_tuple) == 0:
+            district_home_counts_tensor[idx] = torch.stack([nan_tensor, nan_tensor, nan_tensor])
+        elif len(district_combination_tuple) == 1:
+            district_home_counts_tensor[idx] = torch.stack([torch.tensor(district_2_information_counts[district_combination_tuple]), nan_tensor, nan_tensor])
+        elif len(district_combination_tuple) == 2:
+            a, b = district_combination_tuple
+            district_home_counts_tensor[idx] = torch.stack([torch.tensor(district_2_information_counts[(a,)]), torch.tensor(district_2_information_counts[(b,)]), nan_tensor])
+        elif len(district_combination_tuple) == 3:
+            a, b, c = district_combination_tuple
+            district_home_counts_tensor[idx] = torch.stack([torch.tensor(district_2_information_counts[(a,)]), torch.tensor(district_2_information_counts[(b,)]), torch.tensor(district_2_information_counts[(c,)])])
+        else:
+            print("NOT OK!")
+            print(district_combination_tuple)
+    return district_home_counts_tensor
+
+def preprocess_links(links_gdf):
+    for index, row in links_gdf.iterrows():
+        if len(row['district']) >= 4:
+            row['district'].pop(random.randint(0, len(row['district']) - 1))
+    return links_gdf
+
+def find_duplicate_edges_in_gdf(gdf):
+    edge_count = defaultdict(list)
+    for idx, row in gdf.iterrows():
+        edge = tuple(sorted([row['from_node'], row['to_node']]))
+        edge_count[edge].append(idx)
+    
+    duplicates = {edge: indices for edge, indices in edge_count.items() if len(indices) > 1}
+    return duplicates
+
+def read_output_links(folder):
+    file_path = os.path.join(folder, 'output_links.csv.gz')
+    if os.path.exists(file_path):
+        try:
+            # Read the CSV file with the correct delimiter
+            df = pd.read_csv(file_path, delimiter=';')
+            return df
+        except Exception:
+            print("empty data error" + file_path)
+            return None
+    else:
+        return None
+
+def read_eqasim_trips(folder):
+    file_path = os.path.join(folder, 'eqasim_trips.csv')
+    if os.path.exists(file_path):
+        try:
+            df = pd.read_csv(file_path, delimiter=';')
+            return df
+        except Exception:
+            print("empty data error" + file_path)
+            return None
+    else:
+        return None
+    
+    
+def summarize_duplicate_edges(gdf):
+    # Check if 'vol_car' exists and print its data type
+    if 'vol_car' not in gdf.columns:
+        print("'vol_car' column does not exist in the dataframe")
+        return gdf
+
+    # Create a unique identifier for each edge, regardless of direction
+    gdf['edge_id'] = gdf.apply(lambda row: tuple(sorted([row['from_node'], row['to_node']])), axis=1)
+    
+    # Group by the edge_id
+    grouped = gdf.groupby('edge_id')
+    
+    # Function to aggregate the data
+    def aggregate_edges(group):
+        # Sum the 'vol_car' column
+        vol_car_sum = group['vol_car'].sum()
+        
+        # Take other attributes from the first entry
+        first_entry = group.iloc[0]
+        
+        # Create a new row with combined data
+        combined = first_entry.copy()
+        combined['vol_car'] = vol_car_sum
+        
+        # If you want to keep track of the original directions, you can add this info
+        combined['original_directions'] = list(group[['from_node', 'to_node']].itertuples(index=False, name=None))
+        
+        return combined
+    
+    # Apply the aggregation
+    summarized_gdf = grouped.apply(aggregate_edges)
+    
+    # Reset the index and drop the temporary edge_id column
+    summarized_gdf = summarized_gdf.reset_index(drop=True)
+    summarized_gdf = summarized_gdf.drop(columns=['edge_id'])
+    
+    return summarized_gdf
+
+def aggregate_district_information(links_gdf, tensors_edge_information):
+    
+    # Assuming tensors_edge_information is a list of tensors
+    vol_base_case = tensors_edge_information[0]  # Adjust index if needed
+    capacities_base = tensors_edge_information[1]  
+    capacities_new = tensors_edge_information[2] 
+    capacity_reduction = tensors_edge_information[3]  
+    freespeed_base = tensors_edge_information[4]
+    freespeed = tensors_edge_information[5]
+    highway = tensors_edge_information[6]
+    length = tensors_edge_information[7]
+    cars_allowed = tensors_edge_information[8]
+    bus_allowed = tensors_edge_information[9]
+    pt_allowed = tensors_edge_information[10]
+    train_allowed = tensors_edge_information[11]
+    rail_allowed = tensors_edge_information[12]
+    subway_allowed = tensors_edge_information[13]
+    
+    district_info = {}
+            
+    # modes_str = ""
+    for idx, row in links_gdf.iterrows():
+        districts = row['district']
+        modes = row['modes']
+        # modes_str += modes + ","
+        for district in districts:
+            if district not in district_info:
+                district_info[district] = {
+                    'vol_base_case': 0,
+                    'capacity_base': 0,
+                    'capacity_new': 0,
+                    'capacity_reduction': 0,
+                    'freespeed_base_sum': 0,
+                    'freespeed_base_count': 0,
+                    'freespeed_sum': 0,
+                    'freespeed_count': 0,
+                    'highway_sum': 0,
+                    'highway_count': 0,
+                    'length': 0,
+                    'edge_count': 0,
+                    'cars_allowed': 0,
+                    'bus_allowed': 0,
+                    'pt_allowed': 0,
+                    'train_allowed': 0,
+                    'rail_allowed': 0,
+                    'subway_allowed': 0,
+                }
+            
+            if "car" in modes:
+                district_info[district]['capacity_base'] += capacities_base[idx].item()
+                district_info[district]['capacity_new'] += capacities_new[idx].item()
+                district_info[district]['capacity_reduction'] += capacity_reduction[idx].item()
+                district_info[district]['freespeed_sum'] += freespeed[idx].item()
+                district_info[district]['freespeed_base_sum'] += freespeed_base[idx].item()
+                district_info[district]['freespeed_base_count'] += 1
+                district_info[district]['freespeed_count'] += 1
+            
+            district_info[district]['length'] += length[idx].item()
+
+            highway_value = highway_mapping.get(row['highway'], -1)
+            district_info[district]['highway_sum'] += highway_value
+            district_info[district]['highway_count'] += 1
+            district_info[district]['edge_count'] += 1
+            
+            district_info[district]['cars_allowed'] += cars_allowed[idx].item()
+            district_info[district]['bus_allowed'] += bus_allowed[idx].item()
+            district_info[district]['pt_allowed'] += pt_allowed[idx].item()
+            district_info[district]['train_allowed'] += train_allowed[idx].item()
+            district_info[district]['rail_allowed'] += rail_allowed[idx].item()
+            district_info[district]['subway_allowed'] += subway_allowed[idx].item()
+
+    # Compute averages 
+    for district in district_info:
+        district_info[district]['freespeed_base'] = district_info[district]['freespeed_base_sum'] / district_info[district]['freespeed_base_count']
+        district_info[district]['freespeed'] = district_info[district]['freespeed_sum'] / district_info[district]['freespeed_count']
+        district_info[district]['highway'] = district_info[district]['highway_sum'] / district_info[district]['highway_count']
+            
+    # Sort districts by their identifiers
+    districts = sorted(district_info.keys())
+    
+    vol_base_case_tensor = torch.tensor([district_info[d]['vol_base_case'] for d in districts])
+    capacity_base_tensor = torch.tensor([district_info[d]['capacity_base'] for d in districts])
+    capacity_new_tensor = torch.tensor([district_info[d]['capacity_new'] for d in districts])
+    capacity_reduction_tensor = torch.tensor([district_info[d]['capacity_reduction'] for d in districts])
+    
+    length_tensor = torch.tensor([district_info[d]['length'] for d in districts])
+    edge_count_tensor = torch.tensor([district_info[d]['edge_count'] for d in districts])
+    highway_tensor = torch.tensor([district_info[d]['highway'] for d in districts])
+    freespeed_base_tensor = torch.tensor([district_info[d]['freespeed_base'] for d in districts])
+    freespeed_tensor = torch.tensor([district_info[d]['freespeed'] for d in districts])
+    
+    cars_allowed_tensor = torch.tensor([district_info[d]['cars_allowed'] for d in districts])
+    bus_allowed_tensor = torch.tensor([district_info[d]['bus_allowed'] for d in districts])
+    pt_allowed_tensor = torch.tensor([district_info[d]['pt_allowed'] for d in districts])
+    train_allowed_tensor = torch.tensor([district_info[d]['train_allowed'] for d in districts])
+    rail_allowed_tensor = torch.tensor([district_info[d]['rail_allowed'] for d in districts])
+    subway_allowed_tensor = torch.tensor([district_info[d]['subway_allowed'] for d in districts])
+
+    return {
+        'districts': districts,
+        'vol_base_case': vol_base_case_tensor,
+        'capacity_base': capacity_base_tensor,
+        'capacity_new': capacity_new_tensor,
+        'capacity_reduction': capacity_reduction_tensor,
+        'length': length_tensor,
+        'highway': highway_tensor,
+        'freespeed_base': freespeed_base_tensor,
+        'freespeed': freespeed_tensor,
+        'cars_allowed': cars_allowed_tensor,
+        'bus_allowed': bus_allowed_tensor,
+        'pt_allowed': pt_allowed_tensor,
+        'train_allowed': train_allowed_tensor,
+        'rail_allowed': rail_allowed_tensor,
+        'subway_allowed': subway_allowed_tensor,
+        'edge_count': edge_count_tensor,
+    }
+    
+def compute_combined_tensor(vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, gdf, capacities_new, capacity_reduction, highway, freespeed):
+    edge_tensors = [
+                torch.tensor(vol_base_case), 
+                torch.tensor(capacity_base_case), 
+                torch.tensor(capacities_new), 
+                torch.tensor(capacity_reduction), 
+                torch.tensor(freespeed_base_case), 
+                torch.tensor(freespeed), 
+                torch.tensor(highway), 
+                torch.tensor(length), 
+                allowed_modes[0],
+                allowed_modes[1],
+                allowed_modes[2],
+                allowed_modes[3],
+                allowed_modes[4],
+                allowed_modes[5],
+            ]
+
+    district_info = aggregate_district_information(links_gdf=gdf, tensors_edge_information= edge_tensors)
+    district_tensors = [
+                district_info['vol_base_case'],
+                district_info['capacity_base'],
+                district_info['capacity_new'],
+                district_info['capacity_reduction'],
+                district_info['freespeed_base'],
+                district_info['freespeed'],
+                district_info['highway'],
+                district_info['length'],
+                district_info['cars_allowed'],
+                district_info['bus_allowed'],
+                district_info['pt_allowed'],
+                district_info['train_allowed'],
+                district_info['rail_allowed'],
+                district_info['subway_allowed'],
+            ]
+    stacked_tensor1 = torch.stack(edge_tensors, dim=1)  # Shape: (25209, 14)
+    stacked_tensor2 = torch.stack(district_tensors, dim=1)  # Shape: (20, 14)
+    combined_tensor = torch.cat((stacked_tensor1, stacked_tensor2), dim=0)  # Shape: (25229, 14)
+    return district_info,combined_tensor
+
+def compute_node_attributes(district_info, len_edges):
+    num_edge_nodes = len_edges
+    num_district_nodes = len(district_info['districts'])
+    node_type_feature = torch.zeros((num_edge_nodes + num_district_nodes, 1), dtype=torch.long)
+    node_type_feature[num_edge_nodes:, :] = 1
+    return node_type_feature
+
+def compute_edge_attributes(district_info, linegraph_data, len_edges, gdf_input):
+    district_node_offset = len_edges
+    edge_to_district_edges = []
+    for idx, row in gdf_input.iterrows():
+        for district in row['district']:
+            district_idx = district_info['districts'].index(district) + district_node_offset
+            edge_to_district_edges.append([idx, district_idx])
+            edge_to_district_edges.append([district_idx, idx])  # Add reverse edge for undirected graph  # TODO is one way enough ? 
+    edge_to_district_index = torch.tensor(edge_to_district_edges, dtype=torch.long).t()
+    linegraph_data.edge_index = torch.cat([linegraph_data.edge_index, edge_to_district_index], dim=1)
+    edge_to_district_index = torch.tensor(edge_to_district_edges, dtype=torch.long).t()
+    edge_to_district_attr = torch.ones((edge_to_district_index.shape[1], 1), dtype=torch.long)
+    return edge_to_district_index, edge_to_district_attr
+
+def compute_target_tensor(vol_base_case, gdf, district_info):
+    edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
+    district_car_volume_difference = []
+    for district in district_info['districts']:
+        district_edges = gdf[gdf['district'].apply(lambda x: district in x)]
+        district_volume_diff = district_edges['vol_car'].sum() - district_edges['vol_car_base_case'].sum()
+        district_car_volume_difference.append(district_volume_diff)
+    district_car_volume_difference = torch.tensor(district_car_volume_difference, dtype=torch.float).unsqueeze(1)
+    target_values = torch.cat([torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1), district_car_volume_difference], dim=0)
+    return target_values
+
+def get_basic_edge_attributes(capacity_base_case, gdf):
+    capacities_new = np.where(gdf['modes'].str.contains('car'), gdf['capacity'], 0)
+    capacity_reduction = capacities_new - capacity_base_case
+    highway = gdf['highway'].apply(lambda x: highway_mapping.get(x, -1)).values
+    freespeed = np.where(gdf['modes'].str.contains('car'), gdf['freespeed'], 0)
+    return capacities_new,capacity_reduction,highway,freespeed
+
+def prepare_gdf(df, gdf_input):
+    gdf = gdf_input[['link', 'district', 'geometry']].merge(df, on='link', how='left')
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
+    gdf.crs = gdf_input.crs
+    return gdf
+
+def get_link_geometries(links_gdf_input, districts_input):
+    edge_midpoints = np.array([((geom.coords[0][0] + geom.coords[-1][0]) / 2, 
+                                    (geom.coords[0][1] + geom.coords[-1][1]) / 2) 
+                                for geom in links_gdf_input.geometry])
+
+    nodes = pd.concat([links_gdf_input['from_node'], links_gdf_input['to_node']]).unique()
+    node_to_idx = {node: idx for idx, node in enumerate(nodes)}
+    links_gdf_input['from_idx'] = links_gdf_input['from_node'].map(node_to_idx)
+    links_gdf_input['to_idx'] = links_gdf_input['to_node'].map(node_to_idx)
+    edges_base = links_gdf_input[['from_idx', 'to_idx']].values
+    edge_midpoint_tensor = torch.tensor(edge_midpoints, dtype=torch.float)
+
+    start_points = np.array([geom.coords[0] for geom in links_gdf_input.geometry])
+    end_points = np.array([geom.coords[-1] for geom in links_gdf_input.geometry])
+
+    edge_start_point_tensor = torch.tensor(start_points, dtype=torch.float)
+    edge_end_point_tensor = torch.tensor(end_points, dtype=torch.float)
+
+    stacked_edge_geometries_tensor = torch.stack([edge_start_point_tensor, edge_end_point_tensor, edge_midpoint_tensor], dim=1)
+
+    district_centroids = districts_input['district_centroid'].apply(lambda point: [point.x, point.y])
+    district_centroids_tensor = torch.tensor(district_centroids.tolist(), dtype=torch.float32)
+    if district_centroids_tensor.size(0) != 20 or district_centroids_tensor.size(1) != 2:
+        raise ValueError("The resulting tensor does not have the expected size of (20, 2)")
+    district_centroids_tensor_padded = district_centroids_tensor.unsqueeze(1).expand(-1, 3, -1)
+    return edge_start_point_tensor,stacked_edge_geometries_tensor, district_centroids_tensor_padded, edges_base, nodes
+
+
+# def process_result_dic(result_dic):
+#     datalist = []
+#     linegraph_transformation = LineGraph()
+#     base_network_no_policies = result_dic.get("base_network_no_policies")
+#     vol_base_case = base_network_no_policies['vol_car'].values
+#     capacity_base_case = base_network_no_policies['capacity'].values
+
+#     for key, df in result_dic.items():
+#         if isinstance(df, pd.DataFrame):
+#             gdf = gpd.GeoDataFrame(df, geometry='geometry')
+#             gdf.crs = "EPSG:2154"  # Assuming the original CRS is EPSG:2154
+#             gdf.to_crs("EPSG:4326", inplace=True)
+            
+#             # Create dictionaries for nodes and edges
+#             nodes = pd.concat([gdf['from_node'], gdf['to_node']]).unique()
+#             node_to_idx = {node: idx for idx, node in enumerate(nodes)}
+            
+#             gdf['from_idx'] = gdf['from_node'].map(node_to_idx)
+#             gdf['to_idx'] = gdf['to_node'].map(node_to_idx)
+            
+#             edges = gdf[['from_idx', 'to_idx']].values
+#             # edge_car_volumes = gdf['vol_car'].values
+#             edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
+#             # if vol_base_case == 0:
+#             #     if edge_car_volume_difference == 0:
+#             #         edge_car_volume_difference_in_percent = 0
+#             #     else:
+#             #         edge_car_volume_difference_in_percent = 1
+#             #         print("now it is not zero where before it was zero")
+                    
+#             # edge_car_volume_difference_in_percent = edge_car_volume_difference / vol_base_case 
+            
+#             # Initialize the percentage difference array
+#             # edge_car_volume_difference_in_percent = np.zeros_like(edge_car_volume_difference, dtype=float)
+
+#             # # Handle cases where vol_base_case is zero
+#             # for i in range(len(vol_base_case)):
+#             #     if vol_base_case[i] == 0:
+#             #         if edge_car_volume_difference[i] == 0:
+#             #             edge_car_volume_difference_in_percent[i] = 0
+#             #         else:
+#             #             edge_car_volume_difference_in_percent[i] = 100  # or any large number to indicate infinity
+#             #             print(f"Edge {i}: now it is not zero where before it was zero")
+#             #     else:
+#             #         edge_car_volume_difference_in_percent[i] = edge_car_volume_difference[i] / vol_base_case[i] * 100
+
+#             # # Add these calculations as new columns to the GeoDataFrame
+#             # gdf['edge_car_volume_difference'] = edge_car_volume_difference
+#             # gdf['edge_car_volume_difference_in_percent'] = edge_car_volume_difference_in_percent
+
+
+#             capacities = gdf['capacity'].values
+#             capacity_reduction = gdf['capacity'].values - capacity_base_case
+#             # freespeeds = gdf['freespeed'].values  
+#             # lengths = gdf['length'].values  
+#             # modes = gdf['modes'].values
+#             # modes_encoded = np.vectorize(encode_modes)(modes)
+#             highway = gdf['highway'].apply(lambda x: highway_mapping.get(x, -1)).values
+            
+#             edge_positions = np.array([((geom.coords[0][0] + geom.coords[-1][0]) / 2, 
+#                                         (geom.coords[0][1] + geom.coords[-1][1]) / 2) 
+#                                        for geom in gdf.geometry])
+
+#             # Convert lists to tensors
+#             edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+#             edge_positions_tensor = torch.tensor(edge_positions, dtype=torch.float)
+#             x = torch.zeros((len(nodes), 1), dtype=torch.float)
+            
+#             # Create Data object
+#             target_values = torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
+#             data = Data(edge_index=edge_index, x=x, pos=edge_positions_tensor)
+            
+#             # Transform to line graph
+#             linegraph_data = linegraph_transformation(data)
+            
+#             # Prepare the x for line graph: index and capacity
+#             # linegraph_x = torch.tensor(np.column_stack((capacities, vol_base_case, highway)), dtype=torch.float)
+#             linegraph_x = torch.tensor(np.column_stack((capacities, capacity_reduction, vol_base_case, highway)), dtype=torch.float)
+
+#             linegraph_data.x = linegraph_x
+            
+#             # Target tensor for car volumes
+#             linegraph_data.y = target_values
+            
+#             if linegraph_data.validate(raise_on_error=True):
+#                 datalist.append(linegraph_data)
+#             else:
+#                 print("Invalid line graph data")
+                
+#     # Convert dataset to a list of dictionaries
+#     data_dict_list = [{'x': lg_data.x, 'edge_index': lg_data.edge_index, 'pos': lg_data.pos, 'y': lg_data.y} for lg_data in datalist]
+    
+#     return data_dict_list
