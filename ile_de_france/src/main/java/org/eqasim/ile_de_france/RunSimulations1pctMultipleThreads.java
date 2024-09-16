@@ -27,16 +27,16 @@ public class RunSimulations1pctMultipleThreads {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_with_policies/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_with_policies/networks/";
+        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        for (int i = 100; i <= 5000; i += 100) {
+        for (int i = 1000; i <= 16000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -235,10 +235,10 @@ public class RunSimulations1pctMultipleThreads {
                     LOGGER.info("Deleting directory: " + path);
                     deleteDirectoryRecursively(path);
                 } else {
-                    String fileName = path.getFileName().toString();
-                    if (!fileName.equals("output_links.csv.gz")
-                            && !fileName.equals("eqasim_pt.csv")
-                            && !fileName.equals("output_trips.csv.gz")) {
+                        String fileName = path.getFileName().toString();
+                        if (!fileName.equals("output_links.csv.gz")
+                                && !fileName.equals("eqasim_pt.csv")
+                                && !fileName.equals("eqasim_trips.csv")) {
                         Files.delete(path);
                         LOGGER.info("Deleted file: " + path);
                     } else {
