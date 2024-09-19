@@ -175,12 +175,12 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         LOGGER.info("Running simulation with config: " + fullConfigPath + ", network file: " + networkFile + ", output directory: " + outputDirectory);
-
-        final List<String> arguments = Arrays.asList("java", "-Xms16g", "-Xmx16g", "-cp",
+        // 'normal' config on RetinaRoaster: 4 number of threads, 10g memory
+        final List<String> arguments = Arrays.asList("java", "-Xms10g", "-Xmx10g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pm",
-                "--config:global.numberOfThreads", "2",
-                "--config:qsim.numberOfThreads", "2",
+                "--config:global.numberOfThreads", "4",
+                "--config:qsim.numberOfThreads", "4",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
