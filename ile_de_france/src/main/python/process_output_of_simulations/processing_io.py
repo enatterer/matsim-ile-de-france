@@ -1,67 +1,38 @@
-import os
+import alphashape
+import collections.defaultdict
+import fiona
+import geopandas as gpd
 import glob
 import gzip
-import math
-import random
-import pickle
-
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib.cm as cm
-from matplotlib.colors import LogNorm
-import shapely.wkt as wkt
-from shapely.geometry import Point, LineString, box
-from shapely.ops import nearest_points
 import lxml.etree as ET
-import tqdm
-import wandb
+import math
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pandas as pd
+import pickle
+import random
+import re
+import shapely.wkt as wkt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch_geometric
 import torchvision
 import torchvision.transforms as T
-from torch.utils.data import DataLoader, Dataset, Subset
-import torch_geometric
-from torch_geometric.data import Data, Batch
-from torch_geometric.transforms import LineGraph
-import re
-from matplotlib.colors import TwoSlopeNorm
-
-from shapely.ops import unary_union
+import tqdm
+from collections import defaultdict
+from matplotlib.colors import LogNorm, TwoSlopeNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from collections import defaultdict
-
-
-import os
-import glob
-import math
-import pickle
-
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-import torch
-from collections import defaultdict
-
-import processing_io as pio
+from shapely.geometry import LineString, Point, Polygon, box
+from shapely.ops import nearest_points, unary_union
+from torch.utils.data import DataLoader, Dataset, Subset
+from torch_geometric.data import Batch, Data
 from torch_geometric.transforms import LineGraph
 
-from torch_geometric.data import Data, Batch
-import shapely.wkt as wkt
-from tqdm import tqdm
-import fiona
-import os
-
-import alphashape
-from shapely.geometry import Polygon
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-import torch
-from shapely.geometry import Point
-import random
+# import processing_io as pio
 
 
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
@@ -82,10 +53,6 @@ highway_mapping = {
 # gdf_paris_inside_bvd_per = gpd.read_file(paris_inside_bvd_peripherique)
 # boundary_df = alphashape.alphashape(gdf_paris_inside_bvd_per, 435).exterior[0]
 # linear_ring_polygon = Polygon(boundary_df)
-
-
-
-# Function to iterate over result_dic and perform the required operations
 
 
 def analyze_geodataframes(result_dic: dict, consider_only_highway_edges: bool = True):
@@ -656,15 +623,6 @@ def preprocess_links(links_gdf):
             row['district'].pop(random.randint(0, len(row['district']) - 1))
     return links_gdf
 
-def find_duplicate_edges_in_gdf(gdf):
-    edge_count = defaultdict(list)
-    for idx, row in gdf.iterrows():
-        edge = tuple(sorted([row['from_node'], row['to_node']]))
-        edge_count[edge].append(idx)
-    
-    duplicates = {edge: indices for edge, indices in edge_count.items() if len(indices) > 1}
-    return duplicates
-
 def read_output_links(folder):
     file_path = os.path.join(folder, 'output_links.csv.gz')
     if os.path.exists(file_path):
@@ -689,45 +647,6 @@ def read_eqasim_trips(folder):
             return None
     else:
         return None
-    
-    
-def summarize_duplicate_edges(gdf):
-    # Check if 'vol_car' exists and print its data type
-    if 'vol_car' not in gdf.columns:
-        print("'vol_car' column does not exist in the dataframe")
-        return gdf
-
-    # Create a unique identifier for each edge, regardless of direction
-    gdf['edge_id'] = gdf.apply(lambda row: tuple(sorted([row['from_node'], row['to_node']])), axis=1)
-    
-    # Group by the edge_id
-    grouped = gdf.groupby('edge_id')
-    
-    # Function to aggregate the data
-    def aggregate_edges(group):
-        # Sum the 'vol_car' column
-        vol_car_sum = group['vol_car'].sum()
-        
-        # Take other attributes from the first entry
-        first_entry = group.iloc[0]
-        
-        # Create a new row with combined data
-        combined = first_entry.copy()
-        combined['vol_car'] = vol_car_sum
-        
-        # If you want to keep track of the original directions, you can add this info
-        combined['original_directions'] = list(group[['from_node', 'to_node']].itertuples(index=False, name=None))
-        
-        return combined
-    
-    # Apply the aggregation
-    summarized_gdf = grouped.apply(aggregate_edges)
-    
-    # Reset the index and drop the temporary edge_id column
-    summarized_gdf = summarized_gdf.reset_index(drop=True)
-    summarized_gdf = summarized_gdf.drop(columns=['edge_id'])
-    
-    return summarized_gdf
 
 def aggregate_district_information(links_gdf, tensors_edge_information):
     
