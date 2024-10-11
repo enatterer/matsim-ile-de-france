@@ -1,5 +1,6 @@
-import alphashape
-import collections.defaultdict
+
+# import collections.defaultdict
+from collections import defaultdict
 import fiona
 import geopandas as gpd
 import glob
@@ -23,7 +24,7 @@ import torch_geometric
 import torchvision
 import torchvision.transforms as T
 import tqdm
-from collections import defaultdict
+# from collections import defaultdict
 from matplotlib.colors import LogNorm, TwoSlopeNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from shapely.geometry import LineString, Point, Polygon, box
@@ -31,8 +32,6 @@ from shapely.ops import nearest_points, unary_union
 from torch.utils.data import DataLoader, Dataset, Subset
 from torch_geometric.data import Batch, Data
 from torch_geometric.transforms import LineGraph
-
-# import processing_io as pio
 
 
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
@@ -651,13 +650,13 @@ def read_eqasim_trips(folder):
 def aggregate_district_information(links_gdf, tensors_edge_information):
     
     # Assuming tensors_edge_information is a list of tensors
-    vol_base_case = tensors_edge_information[0]  # Adjust index if needed
+    # vol_base_case = tensors_edge_information[0]  # Adjust index if needed
     capacities_base = tensors_edge_information[1]  
     capacities_new = tensors_edge_information[2] 
     capacity_reduction = tensors_edge_information[3]  
     freespeed_base = tensors_edge_information[4]
     freespeed = tensors_edge_information[5]
-    highway = tensors_edge_information[6]
+    # highway = tensors_edge_information[6]
     length = tensors_edge_information[7]
     cars_allowed = tensors_edge_information[8]
     bus_allowed = tensors_edge_information[9]
@@ -697,6 +696,7 @@ def aggregate_district_information(links_gdf, tensors_edge_information):
                 }
             
             if "car" in modes:
+                # district_info[district]['vol_base_case'] += vol_base_case[idx].item()
                 district_info[district]['capacity_base'] += capacities_base[idx].item()
                 district_info[district]['capacity_new'] += capacities_new[idx].item()
                 district_info[district]['capacity_reduction'] += capacity_reduction[idx].item()
@@ -765,7 +765,7 @@ def aggregate_district_information(links_gdf, tensors_edge_information):
         'edge_count': edge_count_tensor,
     }
     
-def compute_combined_tensor(vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, gdf, capacities_new, capacity_reduction, highway, freespeed):
+def compute_combined_tensor(compute_district_nodes, vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, gdf, capacities_new, capacity_reduction, highway, freespeed):
     edge_tensors = [
                 torch.tensor(vol_base_case), 
                 torch.tensor(capacity_base_case), 
@@ -782,28 +782,31 @@ def compute_combined_tensor(vol_base_case, capacity_base_case, length, freespeed
                 allowed_modes[4],
                 allowed_modes[5],
             ]
+    stacked_edge_tensor = torch.stack(edge_tensors, dim=1)  # Shape: (31,140, 14)
 
-    district_info = aggregate_district_information(links_gdf=gdf, tensors_edge_information= edge_tensors)
-    district_tensors = [
-                district_info['vol_base_case'],
-                district_info['capacity_base'],
-                district_info['capacity_new'],
-                district_info['capacity_reduction'],
-                district_info['freespeed_base'],
-                district_info['freespeed'],
-                district_info['highway'],
-                district_info['length'],
-                district_info['cars_allowed'],
-                district_info['bus_allowed'],
-                district_info['pt_allowed'],
-                district_info['train_allowed'],
-                district_info['rail_allowed'],
-                district_info['subway_allowed'],
+    if compute_district_nodes:
+        district_info = aggregate_district_information(links_gdf=gdf, tensors_edge_information= edge_tensors)
+        district_tensors = [
+                    district_info['vol_base_case'],
+                    district_info['capacity_base'],
+                    district_info['capacity_new'],
+                    district_info['capacity_reduction'],
+                    district_info['freespeed_base'],
+                    district_info['freespeed'],
+                    district_info['highway'],
+                    district_info['length'],
+                    district_info['cars_allowed'],
+                    district_info['bus_allowed'],
+                    district_info['pt_allowed'],
+                    district_info['train_allowed'],
+                    district_info['rail_allowed'],
+                    district_info['subway_allowed'],
             ]
-    stacked_tensor1 = torch.stack(edge_tensors, dim=1)  # Shape: (25209, 14)
-    stacked_tensor2 = torch.stack(district_tensors, dim=1)  # Shape: (20, 14)
-    combined_tensor = torch.cat((stacked_tensor1, stacked_tensor2), dim=0)  # Shape: (25229, 14)
-    return district_info,combined_tensor
+        stacked_tensor2 = torch.stack(district_tensors, dim=1)  # Shape: (20, 14)
+        combined_tensor = torch.cat((stacked_edge_tensor, stacked_tensor2), dim=0)  # Shape: (31,160, 14)
+        return district_info, combined_tensor
+    else:
+        return None, stacked_edge_tensor
 
 def compute_node_attributes(district_info, len_edges):
     num_edge_nodes = len_edges
@@ -826,16 +829,19 @@ def compute_edge_attributes(district_info, linegraph_data, len_edges, gdf_input)
     edge_to_district_attr = torch.ones((edge_to_district_index.shape[1], 1), dtype=torch.long)
     return edge_to_district_index, edge_to_district_attr
 
-def compute_target_tensor(vol_base_case, gdf, district_info):
+def compute_target_tensor(compute_district_nodes, vol_base_case, gdf, district_info):
     edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
-    district_car_volume_difference = []
-    for district in district_info['districts']:
-        district_edges = gdf[gdf['district'].apply(lambda x: district in x)]
-        district_volume_diff = district_edges['vol_car'].sum() - district_edges['vol_car_base_case'].sum()
-        district_car_volume_difference.append(district_volume_diff)
-    district_car_volume_difference = torch.tensor(district_car_volume_difference, dtype=torch.float).unsqueeze(1)
-    target_values = torch.cat([torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1), district_car_volume_difference], dim=0)
-    return target_values
+    if compute_district_nodes:
+        district_car_volume_difference = []
+        for district in district_info['districts']:
+            district_edges = gdf[gdf['district'].apply(lambda x: district in x)]
+            district_volume_diff = district_edges['vol_car'].sum() - district_edges['vol_car_base_case'].sum()
+            district_car_volume_difference.append(district_volume_diff)
+        district_car_volume_difference = torch.tensor(district_car_volume_difference, dtype=torch.float).unsqueeze(1)
+        target_values = torch.cat([torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1), district_car_volume_difference], dim=0)
+        return target_values
+    else:
+        return torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
 
 def get_basic_edge_attributes(capacity_base_case, gdf):
     capacities_new = np.where(gdf['modes'].str.contains('car'), gdf['capacity'], 0)
