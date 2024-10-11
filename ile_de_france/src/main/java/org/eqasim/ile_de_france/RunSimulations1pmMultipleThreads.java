@@ -35,7 +35,7 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 15 threads
-        ExecutorService executor = Executors.newFixedThreadPool(8);
+        ExecutorService executor = Executors.newFixedThreadPool(4);
 
         LOGGER.info("Starting simulations");
 
