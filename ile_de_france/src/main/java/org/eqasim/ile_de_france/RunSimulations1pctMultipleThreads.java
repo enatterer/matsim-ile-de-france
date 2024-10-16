@@ -21,7 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RunSimulations1pctMultipleThreads {
+public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleThreads.class.getName());
 
     static public void main(String[] args) throws Exception {
@@ -85,7 +85,7 @@ public class RunSimulations1pctMultipleThreads {
         // Shutdown the executor
         executor.shutdown();
         try {
-            // Wait for all tasks to complete
+            // Increase the wait time for all tasks to complete
             if (!executor.awaitTermination(300, TimeUnit.HOURS)) {
                 executor.shutdownNow();
                 if (!executor.awaitTermination(360, TimeUnit.SECONDS)) {
@@ -96,6 +96,7 @@ public class RunSimulations1pctMultipleThreads {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        LOGGER.info("Simulations completed");
     }
 
     public static void createAndEmptyDirectory(String directory) throws IOException {
@@ -117,7 +118,9 @@ public class RunSimulations1pctMultipleThreads {
     public static boolean checkIfFileExists(String directory, String fileName) {
         Path dirPath = Paths.get(directory);
         Path filePath = dirPath.resolve(fileName);
-        return Files.exists(filePath) && !Files.isDirectory(filePath);
+        boolean exists = Files.exists(filePath) && !Files.isDirectory(filePath);
+        LOGGER.info("Checking if file exists: " + filePath + " - " + exists);
+        return exists;
     }
 
     private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
@@ -151,18 +154,9 @@ public class RunSimulations1pctMultipleThreads {
 
     private static boolean outputDirectoryExists(String outputDirectory) {
         File dir = new File(outputDirectory);
-        return dir.exists() && dir.isDirectory();
-    }
-
-    private static void deleteRecursively(Path path) throws IOException {
-        if (Files.isDirectory(path)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
-                for (Path entry : stream) {
-                    deleteRecursively(entry);
-                }
-            }
-        }
-        Files.delete(path);
+        boolean exists = dir.exists() && dir.isDirectory();
+        LOGGER.info("Checking if output directory exists: " + outputDirectory + " - " + exists);
+        return exists;
     }
 
     /**
@@ -179,14 +173,17 @@ public class RunSimulations1pctMultipleThreads {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
-        final List<String> arguments = Arrays.asList("java", "-Xms12g", "-Xmx12g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms20g", "-Xmx20g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "4",
-                "--config:qsim.numberOfThreads", "4",
+                "--config:global.numberOfThreads", "8",
+                "--config:qsim.numberOfThreads", "8",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
+
+        arguments.forEach(System.out::println);
+
 
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory + ".log"))
@@ -196,7 +193,7 @@ public class RunSimulations1pctMultipleThreads {
 
         boolean interrupted = false;
         try {
-            boolean finished = process.waitFor(60, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(3000, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
                 throw new InterruptedException("Simulation process timed out: " + networkFile);
@@ -215,60 +212,5 @@ public class RunSimulations1pctMultipleThreads {
             }
         }
         LOGGER.info("Completed simulation for: " + networkFile);
-    }
-
-    /**
-     * Deletes all files and folders in the specified directory except for the specified files.
-     *
-     * @param outputDirectory The directory from which files and folders will be deleted.
-     */
-    private static void deleteUnwantedFiles(String outputDirectory) {
-        Path dir = Paths.get(outputDirectory);
-        if (!Files.exists(dir)) {
-            LOGGER.warning("Output directory does not exist: " + outputDirectory);
-            return;
-        }
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (Files.isDirectory(path)) {
-                    LOGGER.info("Deleting directory: " + path);
-                    deleteDirectoryRecursively(path);
-                } else {
-                        String fileName = path.getFileName().toString();
-                        if (!fileName.equals("output_links.csv.gz")
-                                && !fileName.equals("eqasim_pt.csv")
-                                && !fileName.equals("eqasim_trips.csv")) {
-                        Files.delete(path);
-                        LOGGER.info("Deleted file: " + path);
-                    } else {
-                        LOGGER.info("Skipping file: " + path);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
-        }
-    }
-
-    /**
-     * Recursively deletes a directory and its contents.
-     *
-     * @param directory The directory to be deleted.
-     * @throws IOException If an I/O error occurs.
-     */
-    private static void deleteDirectoryRecursively(Path directory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    deleteDirectoryRecursively(entry);
-                } else {
-                    Files.delete(entry);
-                    LOGGER.info("Deleted file: " + entry);
-                }
-            }
-        }
-        Files.delete(directory);
-        LOGGER.info("Deleted directory: " + directory);
     }
 }
