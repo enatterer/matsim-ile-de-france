@@ -34,7 +34,7 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
 
         for (int i = 1000; i <= 16000; i += 1000) {
             String folder = "networks_" + i;
