@@ -177,11 +177,11 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
-        final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms24g", "-Xmx24g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "4",
-                "--config:qsim.numberOfThreads", "4",
+                "--config:global.numberOfThreads", "2",
+                "--config:qsim.numberOfThreads", "2",
                 "--config:global.randomSeed", String.valueOf(seed),
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
