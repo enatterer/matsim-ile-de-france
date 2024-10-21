@@ -40,7 +40,7 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
 
-	    if (networkFiles == null || networkFiles.isEmpty(){
+	    if (networkFiles == null || networkFiles.isEmpty()){
 		    continue;
 	    }
 
