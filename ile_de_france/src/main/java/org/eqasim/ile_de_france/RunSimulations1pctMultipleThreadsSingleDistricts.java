@@ -39,9 +39,6 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
         for (int i = 1000; i <= 16000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
-            if (networkFiles == null || networkFiles.isEmpty()) {
-                continue;
-            }
 
             for (String networkFile : networkFiles) {
                 for (int seed = 1; seed <= 20; seed++) {
