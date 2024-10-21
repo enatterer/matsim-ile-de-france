@@ -32,13 +32,17 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
-
+		
         // Create a fixed thread pool with 5 threads
         ExecutorService executor = Executors.newFixedThreadPool(1);
 
         for (int i = 1000; i <= 16000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
+
+	    if (networkFiles == null || networkFiles.isEmpty(){
+		    continue;
+	    }
 
             for (String networkFile : networkFiles) {
                 for (int seed = 1; seed <= 20; seed++) {
