@@ -27,8 +27,8 @@ public class RunSimulations1pctMultipleThreadsSingleDistricts extends Simulation
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/exp_dist_not_connected_5k/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/exp_dist_not_connected_5k/networks/";
+        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_400/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_400/networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
