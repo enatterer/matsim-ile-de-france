@@ -45,7 +45,7 @@ highway_mapping = {
     'residential': 4, 'living_street': 5,
     'pedestrian': 6, 'service': 7,
     'construction': 8, 'unclassified': 9,
-    'np.nan': -1
+    'pt': -1, 
 }
 
 # paris_inside_bvd_peripherique = "../../../../data/paris_inside_bvd_per/referentiel-comptages-edit.shp"
@@ -258,6 +258,8 @@ def read_network_data(file_path):
         
         # Create a GeoDataFrame
         gdf = gpd.GeoDataFrame(df, geometry='geometry')
+        gdf.crs = "EPSG:2154"  # Assuming the original CRS is EPSG:2154
+        gdf.to_crs("EPSG:4326", inplace=True)
         return gdf
     else:
         return None
@@ -287,8 +289,8 @@ def extract_numbers(path):
 def create_dic_seed_2_output_links(subdir: str):
     result_dic = {}
     for s in subdir:
-        # print(f'Accessing folder: {s}')
         random_seed = extract_numbers(s)
+        
         output_links = s + "/output_links.csv.gz"
         gdf = read_network_data(output_links)
         if gdf is not None:
@@ -622,18 +624,18 @@ def preprocess_links(links_gdf):
             row['district'].pop(random.randint(0, len(row['district']) - 1))
     return links_gdf
 
-def read_output_links(folder):
-    file_path = os.path.join(folder, 'output_links.csv.gz')
-    if os.path.exists(file_path):
-        try:
-            # Read the CSV file with the correct delimiter
-            df = pd.read_csv(file_path, delimiter=';')
-            return df
-        except Exception:
-            print("empty data error" + file_path)
-            return None
-    else:
-        return None
+# def read_output_links(folder):
+#     file_path = os.path.join(folder, 'output_links.csv.gz')
+#     if os.path.exists(file_path):
+#         try:
+#             # Read the CSV file with the correct delimiter
+#             df = pd.read_csv(file_path, delimiter=';')
+#             return df
+#         except Exception:
+#             print("empty data error" + file_path)
+#             return None
+#     else:
+#         return None
 
 def read_eqasim_trips(folder):
     file_path = os.path.join(folder, 'eqasim_trips.csv')
@@ -764,8 +766,9 @@ def aggregate_district_information(links_gdf, tensors_edge_information):
         'subway_allowed': subway_allowed_tensor,
         'edge_count': edge_count_tensor,
     }
+
     
-def compute_combined_tensor(compute_district_nodes, vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, gdf, capacities_new, capacity_reduction, highway, freespeed):
+def compute_combined_tensor_edge_features(vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, capacities_new, capacity_reduction, highway, freespeed):
     edge_tensors = [
                 torch.tensor(vol_base_case), 
                 torch.tensor(capacity_base_case), 
@@ -782,31 +785,31 @@ def compute_combined_tensor(compute_district_nodes, vol_base_case, capacity_base
                 allowed_modes[4],
                 allowed_modes[5],
             ]
-    stacked_edge_tensor = torch.stack(edge_tensors, dim=1)  # Shape: (31,140, 14)
+    stacked_edge_tensor = torch.stack(edge_tensors, dim=1)  # Shape: (31140, 14)
+    return stacked_edge_tensor
 
-    if compute_district_nodes:
-        district_info = aggregate_district_information(links_gdf=gdf, tensors_edge_information= edge_tensors)
-        district_tensors = [
-                    district_info['vol_base_case'],
-                    district_info['capacity_base'],
-                    district_info['capacity_new'],
-                    district_info['capacity_reduction'],
-                    district_info['freespeed_base'],
-                    district_info['freespeed'],
-                    district_info['highway'],
-                    district_info['length'],
-                    district_info['cars_allowed'],
-                    district_info['bus_allowed'],
-                    district_info['pt_allowed'],
-                    district_info['train_allowed'],
-                    district_info['rail_allowed'],
-                    district_info['subway_allowed'],
-            ]
-        stacked_tensor2 = torch.stack(district_tensors, dim=1)  # Shape: (20, 14)
-        combined_tensor = torch.cat((stacked_edge_tensor, stacked_tensor2), dim=0)  # Shape: (31,160, 14)
-        return district_info, combined_tensor
-    else:
-        return None, stacked_edge_tensor
+def compute_combined_tensor_district_features(gdf, district_info, vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, capacities_new, capacity_reduction, highway, freespeed):
+    edge_tensors = compute_combined_tensor_edge_features(vol_base_case, capacity_base_case, length, freespeed_base_case, allowed_modes, capacities_new, capacity_reduction, highway, freespeed)
+    district_info = aggregate_district_information(links_gdf=gdf, tensors_edge_information= edge_tensors)
+    district_tensors = [
+                district_info['vol_base_case'],
+                district_info['capacity_base'],
+                district_info['capacity_new'],
+                district_info['capacity_reduction'],
+                district_info['freespeed_base'],
+                district_info['freespeed'],
+                district_info['highway'],
+                district_info['length'],
+                district_info['cars_allowed'],
+                district_info['bus_allowed'],
+                district_info['pt_allowed'],
+                district_info['train_allowed'],
+                district_info['rail_allowed'],
+                district_info['subway_allowed'],
+        ]
+    stacked_tensor2 = torch.stack(district_tensors, dim=1)  # Shape: (20, 14)
+    combined_tensor = torch.cat((edge_tensors, stacked_tensor2), dim=0)  # Shape: (31,160, 14)
+    return district_info, combined_tensor
 
 def compute_node_attributes(district_info, len_edges):
     num_edge_nodes = len_edges
@@ -829,7 +832,11 @@ def compute_edge_attributes(district_info, linegraph_data, len_edges, gdf_input)
     edge_to_district_attr = torch.ones((edge_to_district_index.shape[1], 1), dtype=torch.long)
     return edge_to_district_index, edge_to_district_attr
 
-def compute_target_tensor(compute_district_nodes, vol_base_case, gdf, district_info):
+def compute_target_tensor_only_edge_features(vol_base_case, gdf):
+    edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
+    return torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
+    
+def compute_target_tensor_with_district_features(compute_district_nodes, vol_base_case, gdf, district_info):
     edge_car_volume_difference = gdf['vol_car'].values - vol_base_case
     if compute_district_nodes:
         district_car_volume_difference = []
@@ -843,6 +850,7 @@ def compute_target_tensor(compute_district_nodes, vol_base_case, gdf, district_i
     else:
         return torch.tensor(edge_car_volume_difference, dtype=torch.float).unsqueeze(1)
 
+
 def get_basic_edge_attributes(capacity_base_case, gdf):
     capacities_new = np.where(gdf['modes'].str.contains('car'), gdf['capacity'], 0)
     capacity_reduction = capacities_new - capacity_base_case
@@ -851,7 +859,7 @@ def get_basic_edge_attributes(capacity_base_case, gdf):
     return capacities_new,capacity_reduction,highway,freespeed
 
 def prepare_gdf(df, gdf_input):
-    gdf = gdf_input[['link', 'district', 'geometry']].merge(df, on='link', how='left')
+    gdf = gdf_input[['link', 'geometry']].merge(df, on='link', how='left')
     gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
     gdf.crs = gdf_input.crs
     return gdf
