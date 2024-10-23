@@ -16,13 +16,13 @@ public class RunSimulations1pmMultipleSeeds extends SimulationRunnerBase{
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pm_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pm_simulations/pop_1pm_basecase/";
+        String workingDirectory = "ile_de_france/data/pop_1pm_simulations/pop_1pm_cap_reduction_in_zone_1/";
 
         // Create a fixed thread pool with 2 threads
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(1);
         LOGGER.info("Starting simulations");
 
-        for (int i = 0; i <= 50; i++) { // Run 10 iterations
+        for (int i = 0; i <= 20; i++) { // Run 10 iterations
             final String outputDirectory = Paths.get(workingDirectory, "output_seed_" + i).toString();
             final int finalI = i;
             executor.submit(() -> {
