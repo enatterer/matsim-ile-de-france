@@ -53,6 +53,78 @@ highway_mapping = {
 # boundary_df = alphashape.alphashape(gdf_paris_inside_bvd_per, 435).exterior[0]
 # linear_ring_polygon = Polygon(boundary_df)
 
+def find_duplicate_edges_in_gdf(gdf):
+    edge_count = defaultdict(list)
+    for idx, row in gdf.iterrows():
+        # Keep the edge direction by using the tuple without sorting
+        edge = (row['from_node'], row['to_node'])
+        edge_count[edge].append(idx)
+    
+    # Filter to include only edges that appear more than once
+    duplicates = {edge: indices for edge, indices in edge_count.items() if len(indices) > 1}
+    return duplicates
+
+def summarize_duplicate_edges(gdf):
+    if 'vol_car' not in gdf.columns:
+        print("'vol_car' column does not exist in the dataframe")
+        return gdf
+
+    gdf['edge_id'] = gdf.apply(lambda row: (row['from_node'], row['to_node']), axis=1)
+    grouped = gdf.groupby('edge_id')
+    
+    def aggregate_edges(group):
+        non_zero_vol = group[group['vol_car'] != 0]
+        if len(non_zero_vol) > 1:
+            # If there are multiple non-zero entries, take the one with the highest vol_car
+            combined = non_zero_vol.loc[non_zero_vol['vol_car'].idxmax()].copy()
+        elif not non_zero_vol.empty:
+            combined = non_zero_vol.iloc[0].copy()
+        else:
+            combined = group.iloc[0].copy()
+        
+        # We're no longer summing vol_car, just keeping the value from the selected row
+        combined['original_directions'] = list(group[['from_node', 'to_node']].itertuples(index=False, name=None))
+        return combined
+    
+    summarized_gdf = grouped.apply(aggregate_edges)
+    summarized_gdf = summarized_gdf.reset_index(drop=True)
+    summarized_gdf = summarized_gdf.drop(columns=['edge_id'])
+    return summarized_gdf
+
+def identify_summarized_entries_detailed(original_gdf, summarized_gdf):
+    original_gdf['edge_id'] = original_gdf['from_node'].astype(str) + '_' + original_gdf['to_node'].astype(str)
+    summarized_gdf['edge_id'] = summarized_gdf['from_node'].astype(str) + '_' + summarized_gdf['to_node'].astype(str)
+    
+    original_counts = original_gdf['edge_id'].value_counts()
+    summarized_entries = summarized_gdf[summarized_gdf['edge_id'].isin(original_counts[original_counts > 1].index)]
+    
+    detailed_entries = []
+    both_zero = []
+    both_nonzero = []
+    one_zero_one_nonzero = []
+    
+    for _, summarized_row in summarized_entries.iterrows():
+        edge_id = summarized_row['edge_id']
+        original_rows = original_gdf[original_gdf['edge_id'] == edge_id]
+        
+        vol_car_values = original_rows['vol_car'].values
+        entry = {
+            'summarized': summarized_row,
+            'original': original_rows,
+            'count': len(original_rows)
+        }
+        
+        if all(vol_car == 0 for vol_car in vol_car_values):
+            both_zero.append(entry)
+        elif all(vol_car != 0 for vol_car in vol_car_values):
+            both_nonzero.append(entry)
+        else:
+            one_zero_one_nonzero.append(entry)
+        
+        detailed_entries.append(entry)
+    
+    return detailed_entries, both_zero, both_nonzero, one_zero_one_nonzero
+
 
 def analyze_geodataframes(result_dic: dict, consider_only_highway_edges: bool = True):
     """
