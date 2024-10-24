@@ -516,12 +516,34 @@ def process_close_count_to_tensor(close_count_list: list):
     return close_homes_tensor_sparse
 
 
-def calculate_averaged_results(trips_df):
-    """Calculate average travel time and routed distance grouped by mode."""
-    return trips_df.groupby('mode').agg(
-        total_travel_time=('travel_time', 'mean'),
-        total_routed_distance=('routed_distance', 'mean')
-    ).reset_index()
+# def calculate_averaged_results(trips_df):
+#     """Calculate average travel time and routed distance grouped by mode."""
+#     return trips_df.groupby('mode').agg(
+#         total_travel_time=('travel_time', 'mean'),
+#         total_routed_distance=('routed_distance', 'mean')
+#     ).reset_index()
+    
+    
+def calculate_avg_mode_stats(single_mode_stats_list:list):
+    mode_stats_list = []
+    for df in single_mode_stats_list:
+        mode_stats = df.groupby('mode').agg({
+            'travel_time': ['mean', 'count'],
+            'routed_distance': 'mean'
+        }).reset_index()
+        mode_stats.columns = ['mode', 'avg_travel_time', 'trip_count', 'avg_routed_distance']
+        mode_stats_list.append(mode_stats)
+    all_mode_stats = pd.concat(mode_stats_list, ignore_index=True)
+
+    # Calculate the average across all seeds
+    average_mode_stats = all_mode_stats.groupby('mode').agg({
+        'avg_travel_time': 'mean',
+        'avg_routed_distance': 'mean',
+        'trip_count': 'mean'
+    }).reset_index()
+    average_mode_stats.columns = ['mode', 'avg_total_travel_time', 'avg_total_routed_distance', 'avg_trip_count']
+    df_average_mode_stats = pd.DataFrame(average_mode_stats)
+    return df_average_mode_stats
 
 
 def encode_modes(gdf):
