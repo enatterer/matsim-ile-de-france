@@ -25,7 +25,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(1);
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
         // Create a fixed thread pool with 2 threads
         LOGGER.info("Starting simulations");
@@ -170,12 +170,12 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
 
-        final List<String> arguments = Arrays.asList("java", "-Xms40g", "-Xmx40g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "12",
                 "--config:qsim.numberOfThreads", "12",
-                "--config:randomSeed", String.valueOf(randomSeed),
+                "--config:global.randomSeed", String.valueOf(randomSeed),
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);

@@ -27,14 +27,14 @@ public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/networks/";
-// before was normal_dist... 
+        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/networks/";
+
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(1);
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
         for (int i = 1000; i <= 16000; i += 1000) {
             String folder = "networks_" + i;
@@ -172,8 +172,7 @@ public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-
-        final List<String> arguments = Arrays.asList("java", "-Xms40g", "-Xmx40g", "-cp",
+        final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "12",
