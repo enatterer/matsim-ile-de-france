@@ -25,7 +25,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(1);
 
         // Create a fixed thread pool with 2 threads
         LOGGER.info("Starting simulations");
