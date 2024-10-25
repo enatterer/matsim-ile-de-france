@@ -9,34 +9,74 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
-public class RunSimulations1pctMultipleSeeds {
+
+public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleSeeds.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        // Change here to pop_1pm_policy_in_zone_1 for other case.
-        String workingDirectory = "ile_de_france/data/pop_1pct_basecase/";
+        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/networks/";
+
+        // List all files in the directory
+        Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
+
+        // Create a fixed thread pool with 5 threads
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
         // Create a fixed thread pool with 2 threads
-        ExecutorService executor = Executors.newFixedThreadPool(1);
         LOGGER.info("Starting simulations");
 
-        for (int i = 1; i <= 10; i++) { // Run 10 iterations
-            final String outputDirectory = Paths.get(workingDirectory, "output_seed_" + i).toString();
-            final int finalI = i;
-            executor.submit(() -> {
-                try {
-                    runSimulation(configPath,  outputDirectory, workingDirectory, finalI);
-                    deleteUnwantedFiles(outputDirectory);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.log(Level.SEVERE, "Task interrupted for seed: %d".formatted(finalI), e);
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "Error processing seed: %d".formatted(finalI), e);
+        for (int i = 1000; i <= 16000; i += 1000) {
+            String folder = "networks_" + i;
+            List<String> networkFiles = networkFilesMap.get(folder);
+            if (networkFiles == null || networkFiles.isEmpty()) {
+                continue;
+            }
+
+            for (String networkFile : networkFiles) {
+                final String finalNetworkFile = networkFile; // Final variable for lambda capture
+                final String networkName = finalNetworkFile.replace(".xml.gz", "");
+                System.out.println("Network name: " + networkName);
+                final int randomSeed = Integer.parseInt(networkName.split("_")[4]);
+                System.out.println("Random seed: " + randomSeed);
+                final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
+                System.out.println("Submitting task for: " + networkName);
+
+                // Check if the file exists in the directory
+                boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
+
+                if (!outputDirectoryExists(outputDirectory) || !fileExists) {
+                    try {
+                        createAndEmptyDirectory(outputDirectory);
+                        System.out.println("The directory " + outputDirectory + " has been emptied.");
+                    } catch (IOException e) {
+                        System.err.println("An error occurred while creating or emptying the directory: " + e.getMessage());
+                        continue; // Skip to the next iteration if directory creation or emptying fails
+                    }
+
+                    executor.submit(() -> {
+                        System.out.println("Starting task for: " + finalNetworkFile);
+                        try {
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, randomSeed);
+                            deleteUnwantedFiles(outputDirectory);
+                            System.out.println("Deleted unwanted files for: " + networkFile);
+                            System.out.println("Processed file: " + networkFile);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            LOGGER.log(Level.SEVERE, "Task interrupted for file: " + finalNetworkFile, e);
+                        } 
+                        catch (Exception e) {
+                            LOGGER.log(Level.SEVERE, "Error processing file: " + networkFile, e);
+                        }
+                    });
+                } else {
+                    LOGGER.info("Skipping simulation for existing output directory: " + outputDirectory);
                 }
-            });
+            }
         }
 
         // Shutdown the executor
@@ -56,42 +96,108 @@ public class RunSimulations1pctMultipleSeeds {
         LOGGER.info("Simulations completed");
     }
 
+    public static void createAndEmptyDirectory(String directory) throws IOException {
+        Path dirPath = Paths.get(directory);
+
+        if (!Files.exists(dirPath)) {
+            Files.createDirectories(dirPath);
+        } else if (Files.isDirectory(dirPath)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath)) {
+                for (Path entry : stream) {
+                    deleteRecursively(entry);
+                }
+            }
+        } else {
+            throw new IOException("The path specified is not a directory: " + directory);
+        }
+    }
+
+    public static boolean checkIfFileExists(String directory, String fileName) {
+        Path dirPath = Paths.get(directory);
+        Path filePath = dirPath.resolve(fileName);
+        boolean exists = Files.exists(filePath) && !Files.isDirectory(filePath);
+        LOGGER.info("Checking if file exists: " + filePath + " - " + exists);
+        return exists;
+    }
+
+    private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
+        File mainDirectory = new File(directoryPath);
+        File[] subDirs = mainDirectory.listFiles(File::isDirectory);
+
+        if (subDirs == null) {
+            System.out.println("The specified directory does not exist or is not a directory.");
+            return Map.of();
+        }
+
+        return Arrays.stream(subDirs)
+                .collect(Collectors.toMap(
+                        File::getName,
+                        subDir -> {
+                            File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
+                            List<String> xmlGzFiles = new ArrayList<>();
+                            if (filesList != null) {
+                                for (File file : filesList) {
+                                    if (file.isFile()) {
+                                        xmlGzFiles.add(file.getName());
+                                    }
+                                }
+                                // Sort the list of file names
+                                Collections.sort(xmlGzFiles);
+                            }
+                            return xmlGzFiles;
+                        }
+                ));
+    }
+
+    private static boolean outputDirectoryExists(String outputDirectory) {
+        File dir = new File(outputDirectory);
+        boolean exists = dir.exists() && dir.isDirectory();
+        LOGGER.info("Checking if output directory exists: " + outputDirectory + " - " + exists);
+        return exists;
+    }
+
     /**
      * Runs the MATSim simulation with the given configuration path and output directory.
      *
      * @param configPath      The path to the configuration file.
+     * @param networkFile     The network file to use for the simulation.
      * @param outputDirectory The directory where output files will be stored.
      * @param workingDirectory The working directory.
-     * @param seed            Random seed
+     * @param args            Command line arguments.
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
-    public static void runSimulation(final String configPath, final String outputDirectory, final String workingDirectory, final int seed) throws Exception {
+    public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args, final int randomSeed) throws Exception {
+        // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-        final List<String> arguments = Arrays.asList("java", "-Xms32g", "-Xmx32g", "-cp",
+
+        final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "12",
                 "--config:qsim.numberOfThreads", "12",
-                "--config:global.randomSeed", String.valueOf(seed),
+                "--config:randomSeed", String.valueOf(randomSeed),
+                "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
+
+        arguments.forEach(System.out::println);
 
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory + ".log"))
                 .redirectError(new File(outputDirectory + ".error.log"))
                 .start();
-        LOGGER.info("Started process: " + outputDirectory);
+        System.out.println("Started process: " + outputDirectory);
 
         boolean interrupted = false;
         try {
-            boolean finished = process.waitFor(60, TimeUnit.HOURS);  // Increase wait time
+            boolean finished = process.waitFor(3000, TimeUnit.HOURS);  // Increase wait time
             if (!finished) {
                 process.destroy();  // destroy process if it times out
-                throw new InterruptedException("Simulation process timed out: ");
+                throw new InterruptedException("Simulation process timed out: " + networkFile);
             }
             int exitValue = process.exitValue();
             if (exitValue != 0) {
-                throw new IOException("Simulation process failed with exit code " + exitValue);
+                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
             }
         } catch (InterruptedException e) {
             interrupted = true;
@@ -102,61 +208,6 @@ public class RunSimulations1pctMultipleSeeds {
                 Thread.currentThread().interrupt();
             }
         }
-        LOGGER.info("Completed simulation");
-    }
-
-    /**
-     * Deletes all files and folders in the specified directory except for the specified files.
-     *
-     * @param outputDirectory The directory from which files and folders will be deleted.
-     */
-    private static void deleteUnwantedFiles(String outputDirectory) {
-        Path dir = Paths.get(outputDirectory);
-        if (!Files.exists(dir)) {
-            LOGGER.warning("Output directory does not exist: " + outputDirectory);
-            return;
-        }
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (Files.isDirectory(path)) {
-                    LOGGER.info("Deleting directory: " + path);
-                    deleteDirectoryRecursively(path);
-                } else {
-                    String fileName = path.getFileName().toString();
-                    if (!fileName.equals("output_links.csv.gz")
-                            && !fileName.equals("eqasim_pt.csv")
-                            && !fileName.equals("output_trips.csv.gz")) {
-                        Files.delete(path);
-                        LOGGER.info("Deleted file: " + path);
-                    } else {
-                        LOGGER.info("Skipping file: " + path);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Error deleting files in directory: " + outputDirectory, e);
-        }
-    }
-
-    /**
-     * Recursively deletes a directory and its contents.
-     *
-     * @param directory The directory to be deleted.
-     * @throws IOException If an I/O error occurs.
-     */
-    private static void deleteDirectoryRecursively(Path directory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    deleteDirectoryRecursively(entry);
-                } else {
-                    Files.delete(entry);
-                    LOGGER.info("Deleted file: " + entry);
-                }
-            }
-        }
-        Files.delete(directory);
-        LOGGER.info("Deleted directory: " + directory);
+        LOGGER.info("Completed simulation for: " + networkFile);
     }
 }
