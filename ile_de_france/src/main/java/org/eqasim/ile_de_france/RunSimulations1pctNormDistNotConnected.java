@@ -177,8 +177,8 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
             "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "8",
-                "--config:qsim.numberOfThreads", "8",
+                "--config:global.numberOfThreads", "12",
+                "--config:qsim.numberOfThreads", "12",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
