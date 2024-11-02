@@ -21,8 +21,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleThreads.class.getName());
+public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctNormDistNotConnected.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
@@ -172,16 +172,18 @@ public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-        final List<String> arguments = Arrays.asList("java", "-Xms64g", "-Xmx64g", "-cp",
+        final List<String> arguments = Arrays.asList(
+            // "java", "-Xms64g", "-Xmx64g", 
+            "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "12",
-                "--config:qsim.numberOfThreads", "12",
+                "--config:global.numberOfThreads", "8",
+                "--config:qsim.numberOfThreads", "8",
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
 
-        arguments.forEach(System.out::println);
+        // arguments.forEach(System.out::println);
 
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory + ".log"))

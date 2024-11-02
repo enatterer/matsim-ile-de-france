@@ -30,7 +30,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
         // Create a fixed thread pool with 2 threads
         LOGGER.info("Starting simulations");
 
-        for (int i = 1000; i <= 16000; i += 1000) {
+        for (int i = 1000; i <= 3000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
