@@ -1,15 +1,29 @@
-# !/bin/bash
+#!/bin/bash
 
-SBATCH --job-name=simulation_norm_dist_job
-SBATCH --output=simulation_norm_dist_output_%j.log
-SBATCH --error=simulation_norm_dist_error_%j.log
-SBATCH --ntasks=4
-SBATCH --cpus-per-task=12
-SBATCH --time=00:30:00
-SBATCH --mem=40G
-SBATCH --partition=test
-SBATCH --account=test
+#SBATCH -J simulation_norm_dist_job
 
+# Output and error files
+#SBATCH --output=simulation_norm_dist_output_%j.log
+#SBATCH --error=simulation_norm_dist_error_%j.log
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=12
+#SBATCH --time=00:30:00
+
+# Account and partition
+#SBATCH --account=pn39mu
+#SBATCH --partition=test
+
+# Notification and type
+#SBATCH --mail-type=END
+#SBATCH --mail-user=elena.natterer@tum.de
+
+# Set up of execution environment
+#SBATCH --export=NONE
+#SBATCH --get-user-env
+
+# Load modules
 module load openjdk
 
 # Navigate to the directory containing the Java program

@@ -20,3 +20,8 @@ ile_de_france/src/main/python/creating_subgraphs/datasets_created/*
 .DS_Store
 
 .history
+
+.target
+
+output_multiple_seeds.log
+output.log
