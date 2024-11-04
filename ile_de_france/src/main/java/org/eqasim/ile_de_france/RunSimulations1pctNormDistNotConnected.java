@@ -173,8 +173,8 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
         final List<String> arguments = Arrays.asList(
-            // "java", "-Xms64g", "-Xmx64g", 
-            "-cp",
+               "java", "-cp",
+                // "-Xms64g", "-Xmx64g", 
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "12",

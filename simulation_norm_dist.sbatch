@@ -24,7 +24,7 @@
 #SBATCH --get-user-env
 
 # Load modules
-module load openjdk
+# module load openjdk
 
 # Navigate to the directory containing the Java program
 # cd /path/to/your/java/program
