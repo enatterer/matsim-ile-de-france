@@ -20,11 +20,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.awt.GraphicsEnvironment;
 
 public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase {
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctNormDistNotConnected.class.getName());
 
     static public void main(String[] args) throws Exception {
+
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        String[] fontFamilies = ge.getAvailableFontFamilyNames();
+        System.out.println("Available fonts:");
+        for (String font : fontFamilies) {
+            System.out.println(font);
+        }
+
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
         String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/";
@@ -36,7 +45,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
         // Create a fixed thread pool with 5 threads
         ExecutorService executor = Executors.newFixedThreadPool(4);
 
-        for (int i = 1000; i <= 16000; i += 1000) {
+        for (int i = 1000; i <= 1000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
@@ -44,6 +53,16 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
             }
 
             for (String networkFile : networkFiles) {
+                
+                // Check if the file exists and is accessible
+                if (Files.exists(Paths.get(networkDirectory, folder, networkFile))) {
+                    System.out.println("File exists: " + networkFile);
+                } else {
+                    System.err.println("File does NOT exist or is inaccessible: " + Paths.get(networkDirectory, folder, networkFile));
+                    continue; // Skip this file if it does not exist
+                }
+
+                // Proceed with the rest of your logic
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
@@ -172,9 +191,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
     public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
         // Full path to the configuration file
         String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-        final List<String> arguments = Arrays.asList(
-               "java", "-cp",
-                // "-Xms64g", "-Xmx64g", 
+        final List<String> arguments = Arrays.asList("java", "-Djava.awt.headless=true", "-Dsun.java2d.fontpath=~/.fonts", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
                 "org.eqasim.ile_de_france.RunSimulation1pct",
                 "--config:global.numberOfThreads", "12",
