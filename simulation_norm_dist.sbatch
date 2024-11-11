@@ -21,10 +21,14 @@
 #SBATCH --get-user-env
 
 # Set up of execution environment
+#SBATCH --export=none
 export HOME=/dss/dsshome1/06/ge49wav3
-export FONTCONFIG_PATH=/etc/fonts
-export FONTCONFIG_FILE=/etc/fonts/fonts.conf
-export FC_FONT_PATH=/usr/share/fonts
+export FONTCONFIG_PATH=$HOME/fonts
+export FONTCONFIG_FILE=$HOME/fonts/fonts.conf
+export FC_FONT_PATH=$HOME/fonts
+
+# Load the openjdk module
+module load java/17
 
 # Check accessible fonts
 fc-list > accessible_fonts.log

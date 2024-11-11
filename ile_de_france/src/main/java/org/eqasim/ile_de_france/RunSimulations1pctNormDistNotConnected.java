@@ -26,14 +26,6 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
     private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctNormDistNotConnected.class.getName());
 
     static public void main(String[] args) throws Exception {
-
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        String[] fontFamilies = ge.getAvailableFontFamilyNames();
-        System.out.println("Available fonts:");
-        for (String font : fontFamilies) {
-            System.out.println(font);
-        }
-
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
         String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/";
@@ -51,10 +43,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
             if (networkFiles == null || networkFiles.isEmpty()) {
                 continue;
             }
-
             for (String networkFile : networkFiles) {
-                
-                // Check if the file exists and is accessible
                 if (Files.exists(Paths.get(networkDirectory, folder, networkFile))) {
                     System.out.println("File exists: " + networkFile);
                 } else {
