@@ -18,26 +18,16 @@
 # Notification and type
 #SBATCH --mail-type=END
 #SBATCH --mail-user=elena.natterer@tum.de
-
-# Set up of execution environment
-#SBATCH --export=NONE
 #SBATCH --get-user-env
 
-# Load modules
-# module load openjdk
+# Set up of execution environment
+export HOME=/dss/dsshome1/06/ge49wav3
+export FONTCONFIG_PATH=/etc/fonts
+export FONTCONFIG_FILE=/etc/fonts/fonts.conf
+export FC_FONT_PATH=/usr/share/fonts
 
-# Navigate to the directory containing the Java program
-# cd /path/to/your/java/program
-
-# Execute the Java program
-# java -cp "ile_de_france/target/ile_de_france-1.5.0.jar" org.eqasim.ile_de_france.RunSimulations1pctNormDistNotConnected
+# Check accessible fonts
+fc-list > accessible_fonts.log
 
 # Run the Java program with full arguments
-java -Djava.awt.headless=true -cp ile_de_france/target/ile_de_france-1.5.0.jar \
-    org.eqasim.ile_de_france.RunSimulations1pctNormDistNotConnected \
-    --config:global.numberOfThreads 12 \
-    --config:qsim.numberOfThreads 12 \
-    --config:network.inputNetworkFile networks/networks_1000/network_d_2_4_6_7_12.xml.gz \
-    --config:controler.outputDirectory ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/output_networks_5000/network_d_2_4_6_7_12 \
-    --config-path ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/paris_1pct_config.xml
-
+java -cp ile_de_france/target/ile_de_france-1.5.0.jar org.eqasim.ile_de_france.RunSimulations1pctNormDistNotConnected > output.log 2>&1
