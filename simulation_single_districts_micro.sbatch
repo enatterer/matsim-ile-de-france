@@ -33,4 +33,4 @@ module use /lrz/sys/share/modules/extfiles
 module load openjdk/17.0.11_9
 
 # Run the Java program with full arguments
-java -cp ile_de_france/target/ile_de_france-1.5.0.jar org.eqasim.ile_de_france.RunSimulations1pctMltipleSeeds > output_single_districts.log 2>&1
+java -cp ile_de_france/target/ile_de_france-1.5.0.jar org.eqasim.ile_de_france.RunSimulations1pctMultipleSeeds > output_single_districts.log 2>&1
