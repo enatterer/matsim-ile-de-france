@@ -1,5 +1,15 @@
 package org.eqasim.ile_de_france;
 
+import org.eqasim.core.simulation.analysis.EqasimAnalysisModule;
+import org.eqasim.core.simulation.mode_choice.EqasimModeChoiceModule;
+import org.eqasim.ile_de_france.mode_choice.IDFModeChoiceModule;
+import org.matsim.api.core.v01.Scenario;
+import org.matsim.core.config.CommandLine;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.controler.Controler;
+import org.matsim.core.scenario.ScenarioUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -10,42 +20,35 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.awt.GraphicsEnvironment;
 
-public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleSeeds.class.getName());
+public class RunSimulations1pctExpDistNotConnected extends SimulationRunnerBase {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctExpDistNotConnected.class.getName());
 
     static public void main(String[] args) throws Exception {
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/single_districts_with_different_seeds/networks/";
+        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/exp_dist_not_connected_5k/";
+        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/exp_dist_not_connected_5k/networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
-        // Create a fixed thread pool with 2 threads
-        LOGGER.info("Starting simulations");
-
-        for (int i = 1000; i <= 3000; i += 1000) {
+        for (int i = 1000; i <= 5000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
                 continue;
             }
-
             for (String networkFile : networkFiles) {
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
                 System.out.println("Network name: " + networkName);
-                final int randomSeed = Integer.parseInt(networkName.split("_")[4]);
-                System.out.println("Random seed: " + randomSeed);
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
                 System.out.println("Submitting task for: " + networkName);
-
-                // Check if the file exists in the directory
                 boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
 
                 if (!outputDirectoryExists(outputDirectory) || !fileExists) {
@@ -60,7 +63,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
-                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, randomSeed);
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0, true, "8", "8", null);
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
