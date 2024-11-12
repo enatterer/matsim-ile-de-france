@@ -87,7 +87,8 @@ def dataframe_to_xml(df, nodes_dict):
             'capacity': str(row['capacity']),
             'permlanes': row['permlanes'],
             'oneway': row['oneway'],
-            'modes': row['modes']
+            'modes': row['modes'],
+            'district': row['district']
         }
         # Replace "inf" with "'Infinity" in the attributes
         for key, value in link_attributes.items():
@@ -107,7 +108,7 @@ def write_xml_to_gz(xml_tree, file_path):
         f.write(xml_str)
         
 # Function to read and convert CSV.GZ to GeoDataFrame
-def read_network_data(folder):
+def read_output_links(folder):
     file_path = os.path.join(folder, 'output_links.csv.gz')
     if os.path.exists(file_path):
         # Read the CSV file with the correct delimiter
