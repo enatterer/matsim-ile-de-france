@@ -122,7 +122,22 @@ def read_output_links(folder):
         return gdf
     else:
         return None
-
+    
+# Function to read and convert CSV.GZ to GeoDataFrame
+def read_network_data(folder):
+    file_path = os.path.join(folder, 'output_links.csv.gz')
+    if os.path.exists(file_path):
+        # Read the CSV file with the correct delimiter
+        df = pd.read_csv(file_path, delimiter=';')
+        
+        # Convert the 'geometry' column to actual geometrical data
+        df['geometry'] = df['geometry'].apply(wkt.loads)
+        
+        # Create a GeoDataFrame
+        gdf = gpd.GeoDataFrame(df, geometry='geometry')
+        return gdf
+    else:
+        return None
     
 # Funktion zur Überprüfung, ob eine Teilmenge verbunden ist
 def is_connected(subset, neighbours):
