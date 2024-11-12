@@ -35,29 +35,20 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
-        for (int i = 1000; i <= 1000; i += 1000) {
+        for (int i = 1000; i <= 5000; i += 1000) {
             String folder = "networks_" + i;
             List<String> networkFiles = networkFilesMap.get(folder);
             if (networkFiles == null || networkFiles.isEmpty()) {
                 continue;
             }
             for (String networkFile : networkFiles) {
-                if (Files.exists(Paths.get(networkDirectory, folder, networkFile))) {
-                    System.out.println("File exists: " + networkFile);
-                } else {
-                    System.err.println("File does NOT exist or is inaccessible: " + Paths.get(networkDirectory, folder, networkFile));
-                    continue; // Skip this file if it does not exist
-                }
-
-                // Proceed with the rest of your logic
                 final String finalNetworkFile = networkFile; // Final variable for lambda capture
                 final String networkName = finalNetworkFile.replace(".xml.gz", "");
+                System.out.println("Network name: " + networkName);
                 final String outputDirectory = Paths.get(workingDirectory, "output_" + folder, networkName).toString();
                 System.out.println("Submitting task for: " + networkName);
-
-                // Check if the file exists in the directory
                 boolean fileExists = checkIfFileExists(outputDirectory, "output_links.csv.gz");
 
                 if (!outputDirectoryExists(outputDirectory) || !fileExists) {
@@ -72,7 +63,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
-                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args);
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0);
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);
@@ -105,118 +96,5 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
             Thread.currentThread().interrupt();
         }
         LOGGER.info("Simulations completed");
-    }
-
-    public static void createAndEmptyDirectory(String directory) throws IOException {
-        Path dirPath = Paths.get(directory);
-
-        if (!Files.exists(dirPath)) {
-            Files.createDirectories(dirPath);
-        } else if (Files.isDirectory(dirPath)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath)) {
-                for (Path entry : stream) {
-                    deleteRecursively(entry);
-                }
-            }
-        } else {
-            throw new IOException("The path specified is not a directory: " + directory);
-        }
-    }
-
-    public static boolean checkIfFileExists(String directory, String fileName) {
-        Path dirPath = Paths.get(directory);
-        Path filePath = dirPath.resolve(fileName);
-        boolean exists = Files.exists(filePath) && !Files.isDirectory(filePath);
-        LOGGER.info("Checking if file exists: " + filePath + " - " + exists);
-        return exists;
-    }
-
-    private static Map<String, List<String>> getNetworkFiles(String directoryPath) {
-        File mainDirectory = new File(directoryPath);
-        File[] subDirs = mainDirectory.listFiles(File::isDirectory);
-
-        if (subDirs == null) {
-            System.out.println("The specified directory does not exist or is not a directory.");
-            return Map.of();
-        }
-
-        return Arrays.stream(subDirs)
-                .collect(Collectors.toMap(
-                        File::getName,
-                        subDir -> {
-                            File[] filesList = subDir.listFiles((dir, name) -> name.endsWith(".xml.gz"));
-                            List<String> xmlGzFiles = new ArrayList<>();
-                            if (filesList != null) {
-                                for (File file : filesList) {
-                                    if (file.isFile()) {
-                                        xmlGzFiles.add(file.getName());
-                                    }
-                                }
-                                // Sort the list of file names
-                                Collections.sort(xmlGzFiles);
-                            }
-                            return xmlGzFiles;
-                        }
-                ));
-    }
-
-    private static boolean outputDirectoryExists(String outputDirectory) {
-        File dir = new File(outputDirectory);
-        boolean exists = dir.exists() && dir.isDirectory();
-        LOGGER.info("Checking if output directory exists: " + outputDirectory + " - " + exists);
-        return exists;
-    }
-
-    /**
-     * Runs the MATSim simulation with the given configuration path and output directory.
-     *
-     * @param configPath      The path to the configuration file.
-     * @param networkFile     The network file to use for the simulation.
-     * @param outputDirectory The directory where output files will be stored.
-     * @param workingDirectory The working directory.
-     * @param args            Command line arguments.
-     * @throws Exception if an error occurs during the simulation setup or execution.
-     */
-    public static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args) throws Exception {
-        // Full path to the configuration file
-        String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
-        final List<String> arguments = Arrays.asList("java", "-Djava.awt.headless=true", "-Dsun.java2d.fontpath=~/.fonts", "-cp",
-                "ile_de_france/target/ile_de_france-1.5.0.jar",
-                "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "12",
-                "--config:qsim.numberOfThreads", "12",
-                "--config:network.inputNetworkFile", networkFile,
-                "--config:controler.outputDirectory", outputDirectory,
-                "--config-path", fullConfigPath);
-
-        // arguments.forEach(System.out::println);
-
-        Process process = new ProcessBuilder(arguments)
-                .redirectOutput(new File(outputDirectory + ".log"))
-                .redirectError(new File(outputDirectory + ".error.log"))
-                .start();
-        System.out.println("Started process: " + outputDirectory);
-
-        boolean interrupted = false;
-        try {
-            boolean finished = process.waitFor(3000, TimeUnit.HOURS);  // Increase wait time
-            if (!finished) {
-                process.destroy();  // destroy process if it times out
-                throw new InterruptedException("Simulation process timed out: " + networkFile);
-            }
-            int exitValue = process.exitValue();
-            if (exitValue != 0) {
-                throw new IOException("Simulation process failed with exit code " + exitValue + ": " + networkFile);
-            }
-        } catch (InterruptedException e) {
-            interrupted = true;
-            process.destroy();  // ensure process is destroyed if interrupted
-            throw e;  // rethrow the exception to be handled in the calling method
-        } finally {
-            if (interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        LOGGER.info("Completed simulation for: " + networkFile);
     }
 }
