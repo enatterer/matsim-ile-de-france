@@ -27,21 +27,66 @@ public abstract class SimulationRunnerBase {
      * @param outputDirectory The directory where output files will be stored.
      * @param workingDirectory The working directory.
      * @param args            Command line arguments.
+     * @param randomSeed      The random seed for the simulation.
      * @throws Exception if an error occurs during the simulation setup or execution.
      */
-    protected static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, final String workingDirectory, final String[] args, final int randomSeed) throws Exception {
-        // Full path to the configuration file
-        String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
+    protected static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, 
+        final String workingDirectory, final String[] args, 
+        final int randomSeed) throws Exception {
+        runSimulation(configPath, networkFile, outputDirectory, workingDirectory, args, randomSeed, true, "12", "12", null);
+    }
 
-        final List<String> arguments = Arrays.asList("java", "-cp",
+   /**
+     * Runs the MATSim simulation with the given configuration path and output directory.
+     *
+     * @param configPath      The path to the configuration file.
+     * @param networkFile     The network file to use for the simulation.
+     * @param outputDirectory The directory where output files will be stored.
+     * @param workingDirectory The working directory.
+     * @param args            Command line arguments.
+     * @throws Exception if an error occurs during the simulation setup or execution.
+     */
+    protected static void runSimulation(final String configPath, final String networkFile, final String outputDirectory, 
+    final String workingDirectory, final String[] args, 
+    final int randomSeed,
+    final boolean is1Perc,
+    final String numberOfThreads,
+    final String numberOfThreadsQSim,
+    final String memoryAllocation) throws Exception {
+
+        String fullConfigPath = Paths.get(workingDirectory, configPath).toString();
+        final String is1PercString = is1Perc ? "RunSimulation1pct" : "RunSimulation1pm";
+
+        final String memoryAllocationString;
+        final List<String> arguments;
+        if (memoryAllocation != null && !memoryAllocation.isEmpty()) {
+            memoryAllocationString = "-Xms" + memoryAllocation + "g -Xmx" + memoryAllocation + "g";
+            arguments = Arrays.asList("java", memoryAllocationString, "-cp",
+            "ile_de_france/target/ile_de_france-1.5.0.jar",
+            "org.eqasim.ile_de_france." + is1PercString,
+            "--config:global.numberOfThreads", numberOfThreads,
+            "--config:qsim.numberOfThreads", numberOfThreadsQSim,
+            "--config:global.randomSeed", String.valueOf(randomSeed),
+            "--config:network.inputNetworkFile", networkFile,
+            "--config:controler.outputDirectory", outputDirectory,
+            "--config-path", fullConfigPath);
+
+        } else {
+            arguments = Arrays.asList("java", "-cp",
                 "ile_de_france/target/ile_de_france-1.5.0.jar",
-                "org.eqasim.ile_de_france.RunSimulation1pct",
-                "--config:global.numberOfThreads", "12",
-                "--config:qsim.numberOfThreads", "12",
+                "org.eqasim.ile_de_france." + is1PercString,
+                "--config:global.numberOfThreads", numberOfThreads,
+                "--config:qsim.numberOfThreads", numberOfThreadsQSim,
                 "--config:global.randomSeed", String.valueOf(randomSeed),
                 "--config:network.inputNetworkFile", networkFile,
                 "--config:controler.outputDirectory", outputDirectory,
                 "--config-path", fullConfigPath);
+        }
+
+        System.out.println("Arguments for simulation:");
+        for (String argument : arguments) {
+            System.out.println(argument);
+        }
 
         Process process = new ProcessBuilder(arguments)
                 .redirectOutput(new File(outputDirectory + ".log"))

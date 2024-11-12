@@ -21,7 +21,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-
 /*
  * Working parameters: 4 threads each, Xms10g, Xmx10g
  */
@@ -72,7 +71,7 @@ public class RunSimulations1pmMultipleThreads extends SimulationRunnerBase{
                     executor.submit(() -> {
                         LOGGER.info("Starting task for: " + finalNetworkFile);
                         try {
-                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0);
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0, false, "4", "4", "32");
                             deleteUnwantedFiles(outputDirectory);
                             LOGGER.info("Deleted unwanted files for: " + networkFile);
                             LOGGER.info("Processed file: " + networkFile);
