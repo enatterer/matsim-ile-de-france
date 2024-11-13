@@ -24,7 +24,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
         // Create a fixed thread pool with 2 threads
         LOGGER.info("Starting simulations");
@@ -60,7 +60,7 @@ public class RunSimulations1pctMultipleSeeds extends SimulationRunnerBase {
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
-                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, randomSeed);
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, randomSeed, true, "8", "8", null);
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);

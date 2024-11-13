@@ -6,10 +6,10 @@
 #SBATCH --output=simulation_single_districts_output_%j.log
 #SBATCH --error=simulation_single_districts_error_%j.log
 
-#SBATCH --nodes=8
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=12
-#SBATCH --time=20:00:00
+#SBATCH --nodes=16
+#SBATCH --ntasks-per-node=6
+#SBATCH --cpus-per-task=8
+#SBATCH --time=48:00:00
 
 # Account and partition
 #SBATCH --account=pn39mu
