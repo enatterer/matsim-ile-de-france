@@ -35,7 +35,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
 
         // Create a fixed thread pool with 5 threads
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(6);
 
         for (int i = 1000; i <= 5000; i += 1000) {
             String folder = "networks_" + i;
@@ -63,7 +63,7 @@ public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase
                     executor.submit(() -> {
                         System.out.println("Starting task for: " + finalNetworkFile);
                         try {
-                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0);
+                            runSimulation(configPath, Paths.get("networks", folder, networkFile).toString(), outputDirectory, workingDirectory, args, 0,true, "8", "8", null);
                             deleteUnwantedFiles(outputDirectory);
                             System.out.println("Deleted unwanted files for: " + networkFile);
                             System.out.println("Processed file: " + networkFile);

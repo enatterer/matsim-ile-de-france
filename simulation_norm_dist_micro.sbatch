@@ -7,8 +7,8 @@
 #SBATCH --error=simulation_norm_dist_error_%j.log
 
 #SBATCH --nodes=16
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=12
+#SBATCH --ntasks-per-node=6
+#SBATCH --cpus-per-task=8
 #SBATCH --time=20:00:00
 
 # Account and partition
