@@ -6,7 +6,7 @@
 #SBATCH --output=simulation_exp_dist_output_%j.log
 #SBATCH --error=simulation_exp_dist_error_%j.log
 
-#SBATCH --nodes=8
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=6
 #SBATCH --cpus-per-task=8
 #SBATCH --time=20:00:00
