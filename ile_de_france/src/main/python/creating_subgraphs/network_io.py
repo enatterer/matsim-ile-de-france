@@ -88,7 +88,7 @@ def dataframe_to_xml(df, nodes_dict):
             'permlanes': row['permlanes'],
             'oneway': row['oneway'],
             'modes': row['modes'],
-            'district': row['district']
+            # 'district': row['district']
         }
         # Replace "inf" with "'Infinity" in the attributes
         for key, value in link_attributes.items():
