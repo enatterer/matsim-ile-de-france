@@ -369,7 +369,7 @@ def create_dic_seed_2_output_links(subdir: str):
             result_dic[str(random_seed)] = gdf
     return result_dic
 
-def create_dic_seed_2_eqasim_trips(subdir: str):
+def create_dic_seed_2_eqasim_trips_given_eqasim_trips(subdir: str):
     result_dic = {}
     for s in subdir:
         random_seed = extract_numbers(s)
@@ -379,6 +379,22 @@ def create_dic_seed_2_eqasim_trips(subdir: str):
             if df_eqasim_trips is not None:
                 result_dic[str(random_seed)] = df_eqasim_trips
     return result_dic
+
+def create_dic_seed_2_eqasim_trips_given_output_trips(subdir: str):
+    result_dic = {}
+    for s in subdir:
+        random_seed = extract_numbers(s)
+        output_trips_path = os.path.join(s, "output_trips.csv.gz")  # Updated file name
+        if os.path.exists(output_trips_path):  # Check if the file exists
+            try:
+                # Read the compressed CSV file
+                df_output_trips = pd.read_csv(output_trips_path, delimiter=';')
+                if not df_output_trips.empty:  # Ensure the dataframe is not empty
+                    result_dic[str(random_seed)] = df_output_trips
+            except Exception as e:
+                print(f"Error reading {output_trips_path}: {e}")  # Log any errors
+    return result_dic
+
 
 def compute_average_or_median_geodataframe(geodataframes, column_name, is_mean: bool = True):
     """
