@@ -17,22 +17,12 @@ import pickle
 import random
 import re
 import shapely.wkt as wkt
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch_geometric
-import torchvision
-import torchvision.transforms as T
 import tqdm
 # from collections import defaultdict
 from matplotlib.colors import LogNorm, TwoSlopeNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import nearest_points, unary_union
-from torch.utils.data import DataLoader, Dataset, Subset
-from torch_geometric.data import Batch, Data
-from torch_geometric.transforms import LineGraph
-
 
 districts = gpd.read_file("../../../../data/visualisation/districts_paris.geojson")
 
