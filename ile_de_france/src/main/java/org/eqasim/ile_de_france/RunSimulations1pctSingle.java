@@ -20,7 +20,7 @@ public class RunSimulations1pctSingle extends SimulationRunnerBase {
         String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_basecase/";
         ExecutorService executor = Executors.newFixedThreadPool(1);
         final String networkName = "paris_1pct_network.xml.gz";
-        for (int randomSeed = 45; randomSeed <= 100; randomSeed++) {
+        for (int randomSeed = 46; randomSeed <= 100; randomSeed++) {
             final int finalRandomSeed = randomSeed;
             final String outputDirectorySeed = Paths.get(workingDirectory, "output_seed_" + finalRandomSeed).toString();
             boolean fileExists = checkIfFileExists(outputDirectorySeed, "output_links.csv.gz");
@@ -48,7 +48,8 @@ public class RunSimulations1pctSingle extends SimulationRunnerBase {
                     }
                 });
             } else {
-        LOGGER.info("Skipping simulation for existing output directory: " + outputDirectorySeed);
+            LOGGER.info("Skipping simulation for existing output directory: " + outputDirectorySeed);
+            }
         }
 
         // Shutdown the executor
@@ -67,5 +68,4 @@ public class RunSimulations1pctSingle extends SimulationRunnerBase {
         }
         LOGGER.info("Simulations completed");
     }
-}
 }
