@@ -21,15 +21,28 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.awt.GraphicsEnvironment;
+import org.matsim.core.config.CommandLine;
 
-public class RunSimulations1pctNormDistNotConnected extends SimulationRunnerBase {
-    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctNormDistNotConnected.class.getName());
-
+public class RunSimulations1pctMultipleThreads extends SimulationRunnerBase {
+    private static final Logger LOGGER = Logger.getLogger(RunSimulations1pctMultipleThreads.class.getName());
+    
     static public void main(String[] args) throws Exception {
+        CommandLine cmd;
+        try {
+            cmd = new CommandLine.Builder(args)
+                .requireOptions("subfolder-path")
+                .build();
+        } catch (CommandLine.ConfigurationException e) {
+            System.err.println("Error parsing command line arguments: " + e.getMessage());
+            System.err.println("Usage: --subfolder-path <path> [--files-per-dir <number>]");
+            return;
+        }
+
         // Configuration settings
         String configPath = "paris_1pct_config.xml";
-        String workingDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/";
-        String networkDirectory = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/norm_dist_not_connected_5k/networks/";
+        String baseDir = "ile_de_france/data/pop_1pct_simulations/pop_1pct_cap_reduction/";
+        String workingDirectory = baseDir + cmd.getOption("subfolder-path").get();
+        String networkDirectory = workingDirectory + "networks/";
 
         // List all files in the directory
         Map<String, List<String>> networkFilesMap = getNetworkFiles(networkDirectory);
