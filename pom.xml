@@ -12,6 +12,7 @@
 		<module>core</module>
 		<module>switzerland</module>
 		<module>ile_de_france</module>
+		<module>bavaria</module>
 		<module>sao_paulo</module>
 		<module>examples</module>
 		<module>san_francisco</module>
@@ -137,6 +138,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
+				<version>3.2.1</version>  <!-- Add this line -->
 				<executions>
 					<execution>
 						<id>attach-sources</id>
